@@ -9,11 +9,12 @@ const initialState: LoginActionState = {
 };
 
 type LoginFormProps = {
-  disabled?: boolean;
+  submitDisabled?: boolean;
 };
 
-export function LoginForm({ disabled = false }: LoginFormProps) {
+export function LoginForm({ submitDisabled = false }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
+  const isSubmitLocked = submitDisabled || isPending;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -24,7 +25,7 @@ export function LoginForm({ disabled = false }: LoginFormProps) {
         <input
           autoComplete="email"
           className="h-12 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground placeholder:text-muted/70"
-          disabled={disabled || isPending}
+          disabled={isPending}
           id="email"
           name="email"
           placeholder="nama@jengkar.com"
@@ -39,7 +40,7 @@ export function LoginForm({ disabled = false }: LoginFormProps) {
         <input
           autoComplete="current-password"
           className="h-12 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground placeholder:text-muted/70"
-          disabled={disabled || isPending}
+          disabled={isPending}
           id="password"
           name="password"
           placeholder="Masukkan password"
@@ -55,11 +56,18 @@ export function LoginForm({ disabled = false }: LoginFormProps) {
 
       <button
         className="inline-flex h-12 w-full items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={disabled || isPending}
+        disabled={isSubmitLocked}
         type="submit"
       >
-        {isPending ? "Memproses..." : "Masuk"}
+        {isPending ? "Memproses..." : submitDisabled ? "Login belum aktif" : "Masuk"}
       </button>
+
+      {submitDisabled ? (
+        <p className="text-sm leading-6 text-muted">
+          Kolom tetap bisa diisi, tetapi tombol login baru aktif setelah koneksi
+          Supabase dan database production dipasang.
+        </p>
+      ) : null}
     </form>
   );
 }

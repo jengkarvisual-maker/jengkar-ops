@@ -81,11 +81,15 @@ export default async function LoginPage() {
                 </code>
                 untuk mulai memakai auth dan database.
               </p>
+              <p className="mt-3 text-muted">
+                Form tetap dapat diisi untuk uji tampilan, tetapi login production
+                belum bisa diproses sampai environment tersebut dipasang.
+              </p>
             </div>
           ) : null}
 
           <div className="mt-6">
-            <LoginForm disabled={!configured} />
+            <LoginForm submitDisabled={!configured} />
           </div>
         </section>
       </div>
