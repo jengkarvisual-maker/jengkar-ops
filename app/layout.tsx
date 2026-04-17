@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Source_Serif_4, Space_Grotesk } from "next/font/google";
 
@@ -21,22 +22,25 @@ const fontMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ops.rumahjengkar.com"),
-  title: "Jengkar KPI",
+  title: {
+    default: "JENGKAR KPI",
+    template: "%s | JENGKAR KPI",
+  },
   description:
-    "Fondasi aplikasi operasional Rumah Jengkar untuk SOP, KPI, bonus tahunan, dan ritme review tim.",
+    "Sistem absensi, progres kerja, KPI bulanan-tahunan, dan bonus tahunan untuk tim Rumah Jengkar.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html
       className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable}`}
       lang="id"
     >
-      <body>{children}</body>
+      <body className="bg-background text-foreground antialiased">{children}</body>
     </html>
   );
 }

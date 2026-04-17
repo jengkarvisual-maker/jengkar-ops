@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  KARYAWAN
+}
+
+enum AttendanceStatus {
+  ONTIME
+  LATE
+  OFF
+}
+
+model User {
+  id            String         @id @default(cuid())
+  authUserId    String?        @unique @db.Uuid
+  name          String
+  email         String         @unique
+  role          UserRole
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  attendances   Attendance[]
+  dailyProgress DailyProgress[]
+  monthlyKpis   KpiMonthly[]
+  yearlyKpis    KpiYearly[]
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  userId    String
+  date      DateTime         @db.Date
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    AttendanceStatus
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model DailyProgress {
+  id             String   @id @default(cuid())
+  pekerjaan      String
+  userId         String
+  targetSelesai  DateTime? @db.Date
+  tanggalMulai   DateTime? @db.Date
+  tanggalSelesai DateTime? @db.Date
+  tanggalRevisi  DateTime? @db.Date
+  revisiDone     DateTime? @db.Date
+  closing        Boolean   @default(false)
+  isDone         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model KpiMonthly {
+  id             String   @id @default(cuid())
+  userId         String
+  year           Int
+  month          Int
+  scoreKinerja   Float
+  scoreDisiplin  Float
+  totalScore     Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+  @@index([year, month])
+}
+
+model KpiYearly {
+  id        String   @id @default(cuid())
+  userId    String
+  year      Int
+  avgScore  Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+  @@index([year])
+}
+
+model CompanyFinance {
+  id        String   @id @default(cuid())
+  year      Int      @unique
+  netProfit Float
+  bonusPool Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
