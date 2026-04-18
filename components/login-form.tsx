@@ -28,7 +28,7 @@ export function LoginForm({ submitDisabled = false }: LoginFormProps) {
           disabled={isPending}
           id="email"
           name="email"
-          placeholder="nama@jengkar.com"
+          placeholder="nama@rumahjengkar.com"
           type="email"
         />
       </div>

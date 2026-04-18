@@ -2,57 +2,63 @@ import { UserRole } from "@prisma/client";
 
 export const APP_NAME = "JENGKAR KPI";
 export const APP_DOMAIN = "https://ops.rumahjengkar.com";
-export const DEFAULT_PASSWORD = "12345678";
+export const SEED_DEFAULT_PASSWORD =
+  process.env.SEED_DEFAULT_PASSWORD ?? "12345678";
 
 export const INITIAL_USERS = [
   {
     name: "Owner Rumah Jengkar",
-    email: "owner@jengkar.com",
+    email: "owner@rumahjengkar.com",
     role: UserRole.OWNER,
   },
   {
     name: "Admin Rumah Jengkar",
-    email: "admin@jengkar.com",
+    email: "admin@rumahjengkar.com",
     role: UserRole.ADMIN,
   },
   {
+    name: "Finance Rumah Jengkar",
+    email: "finance@rumahjengkar.com",
+    role: UserRole.KARYAWAN,
+  },
+  {
     name: "Nuzulul Lia",
-    email: "nuzulul@jengkar.com",
+    email: "nuz@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Cepi",
-    email: "cepi@jengkar.com",
+    email: "cepi@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Ilham Nasrudin",
-    email: "ilham@jengkar.com",
+    email: "ndog@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Zaka",
-    email: "zaka@jengkar.com",
+    email: "zaka@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Yongki Pardamean",
-    email: "yongki@jengkar.com",
+    email: "yongki@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Naila Salma",
-    email: "naila@jengkar.com",
+    email: "nong@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Lugas Adepi Bumi",
-    email: "lugas@jengkar.com",
+    email: "lugas@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
   {
     name: "Sindy Pratiwi",
-    email: "sindy@jengkar.com",
+    email: "sindy@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
 ] as const;

@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-import { DEFAULT_PASSWORD, INITIAL_USERS } from "../lib/constants";
+import { INITIAL_USERS, SEED_DEFAULT_PASSWORD } from "../lib/constants";
 import { createSupabaseAdminClient } from "../lib/supabase/admin";
 import { calculateBonusPool } from "../lib/utils";
 
@@ -41,7 +41,7 @@ async function seedUsers() {
     if (!authUserId && supabaseAdmin) {
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: user.email,
-        password: DEFAULT_PASSWORD,
+        password: SEED_DEFAULT_PASSWORD,
         email_confirm: true,
         user_metadata: {
           name: user.name,
