@@ -31,6 +31,17 @@ export type HideCompletedProgressResult =
       message: string;
     };
 
+export type HideAllCompletedProgressResult =
+  | {
+      ok: true;
+      count: number;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 function refreshDashboard() {
   revalidateTag(OPS_DASHBOARD_TAG, "max");
   revalidatePath("/dashboard");
@@ -700,6 +711,39 @@ export async function deleteAllCompletedProgressAction() {
       ? `${result.count} item completed work recap berhasil disembunyikan dari dashboard tanpa mengubah nilai KPI.`
       : "Tidak ada completed work recap aktif yang perlu disembunyikan.",
   );
+}
+
+export async function hideAllCompletedProgressFromDashboardAction(): Promise<HideAllCompletedProgressResult> {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.OWNER) {
+    return {
+      ok: false,
+      message: "Hanya Owner yang bisa menyembunyikan seluruh completed work recap.",
+    };
+  }
+
+  const result = await prisma.dailyProgress.updateMany({
+    where: {
+      closing: true,
+      hiddenFromDashboard: false,
+      canceledAt: null,
+    },
+    data: {
+      hiddenFromDashboard: true,
+    },
+  });
+
+  refreshDashboard();
+
+  return {
+    ok: true,
+    count: result.count,
+    message:
+      result.count > 0
+        ? `${result.count} item completed work recap berhasil disembunyikan dari dashboard.`
+        : "Tidak ada completed work recap aktif yang perlu disembunyikan.",
+  };
 }
 
 export async function updateEmployeeProgressAction(formData: FormData) {

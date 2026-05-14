@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  deleteAllCompletedProgressAction,
+  hideAllCompletedProgressFromDashboardAction,
   hideCompletedProgressFromDashboardAction,
 } from "@/app/dashboard/actions";
 import { formatDate } from "@/lib/utils";
@@ -67,6 +67,7 @@ export function CompletedProgressRecapClient({
   const [localRows, setLocalRows] = useState(rows);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [isBulkPending, setIsBulkPending] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const hasRows = localRows.length > 0;
@@ -75,17 +76,42 @@ export function CompletedProgressRecapClient({
   async function handleHide(progressId: string) {
     setPendingId(progressId);
     setFeedback(null);
+    const previousRows = localRows;
+    setLocalRows((currentRows) => currentRows.filter((row) => row.id !== progressId));
 
     const result = await hideCompletedProgressFromDashboardAction(progressId);
 
     if (!result.ok) {
+      setLocalRows(previousRows);
       setPendingId(null);
       setFeedback(result.message);
       return;
     }
 
-    setLocalRows((currentRows) => currentRows.filter((row) => row.id !== result.progressId));
     setPendingId(null);
+    setFeedback(result.message);
+
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function handleHideAll() {
+    setIsBulkPending(true);
+    setFeedback(null);
+    const previousRows = localRows;
+    setLocalRows([]);
+
+    const result = await hideAllCompletedProgressFromDashboardAction();
+
+    if (!result.ok) {
+      setLocalRows(previousRows);
+      setIsBulkPending(false);
+      setFeedback(result.message);
+      return;
+    }
+
+    setIsBulkPending(false);
     setFeedback(result.message);
 
     startTransition(() => {
@@ -104,14 +130,16 @@ export function CompletedProgressRecapClient({
           Anda bisa menyembunyikan semua recap sekaligus. Histori pekerjaan dan nilai KPI yang
           sudah terbentuk tetap aman.
         </p>
-        <form action={deleteAllCompletedProgressAction}>
+        <div className="flex flex-wrap gap-3">
           <button
-            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90"
-            type="submit"
+            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isBulkPending}
+            onClick={() => void handleHideAll()}
+            type="button"
           >
-            Sembunyikan semua recap
+            {isBulkPending ? "Menyembunyikan..." : "Sembunyikan semua recap"}
           </button>
-        </form>
+        </div>
       </div>
 
       {feedback ? (
