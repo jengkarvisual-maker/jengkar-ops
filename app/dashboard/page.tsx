@@ -11,6 +11,7 @@ import {
 } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type DashboardPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

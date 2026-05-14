@@ -11,6 +11,9 @@ import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function SettingsPage() {
   const user = await requireAuthenticatedUser();
   const attendanceSafeMonths =

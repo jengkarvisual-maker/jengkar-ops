@@ -1,4 +1,4 @@
-const CACHE_NAME = "hari-ini-ngapain-v2";
+const CACHE_NAME = "hari-ini-ngapain-v3";
 const APP_SHELL = [
   "/",
   "/login",
@@ -44,6 +44,17 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request).catch(() => caches.match("/offline.html")),
     );
+    return;
+  }
+
+  const isStaticAsset =
+    requestUrl.pathname.startsWith("/_next/static/") ||
+    requestUrl.pathname.startsWith("/icons/") ||
+    requestUrl.pathname === "/rumah-jengkar-logo.png" ||
+    requestUrl.pathname === "/manifest.webmanifest";
+
+  if (!isStaticAsset || requestUrl.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(request));
     return;
   }
 

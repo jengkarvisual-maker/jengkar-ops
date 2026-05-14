@@ -28,6 +28,78 @@ import type {
   YearlyKpiItem,
 } from "@/types/dashboard";
 
+const attendanceRowSelect = {
+  id: true,
+  userId: true,
+  date: true,
+  status: true,
+  checkIn: true,
+  checkOut: true,
+  user: {
+    select: {
+      name: true,
+      email: true,
+    },
+  },
+} as const;
+
+const progressRowSelect = {
+  id: true,
+  pekerjaan: true,
+  detail: true,
+  userId: true,
+  targetSelesai: true,
+  tanggalMulai: true,
+  tanggalSelesai: true,
+  tanggalRevisi: true,
+  revisiDone: true,
+  closing: true,
+  isDone: true,
+  canceledAt: true,
+  createdAt: true,
+  user: {
+    select: {
+      name: true,
+    },
+  },
+} as const;
+
+const monthlyKpiRowSelect = {
+  id: true,
+  userId: true,
+  month: true,
+  year: true,
+  scoreKinerja: true,
+  scoreDisiplin: true,
+  totalScore: true,
+  user: {
+    select: {
+      name: true,
+    },
+  },
+} as const;
+
+const yearlyKpiRowSelect = {
+  id: true,
+  userId: true,
+  year: true,
+  avgScore: true,
+  user: {
+    select: {
+      name: true,
+    },
+  },
+} as const;
+
+const stopCardRowSelect = {
+  id: true,
+  title: true,
+  content: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 function mapAttendanceRows(
   rows: Array<{
     id: string;
@@ -357,7 +429,7 @@ async function buildOwnerDashboardData(input?: {
   const { month: currentMonth, year: currentYear } = getAppDateParts(now);
 
   const [
-    users,
+    teamSize,
     teamUsers,
     attendanceRows,
     progressRows,
@@ -371,7 +443,7 @@ async function buildOwnerDashboardData(input?: {
     stopCardRows,
     finance,
   ] = await Promise.all([
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.count(),
     getAssignableUsers(),
     prisma.attendance.findMany({
       where: {
@@ -380,14 +452,7 @@ async function buildOwnerDashboardData(input?: {
           lt: tomorrowStart,
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: attendanceRowSelect,
       orderBy: {
         createdAt: "desc",
       },
@@ -397,13 +462,7 @@ async function buildOwnerDashboardData(input?: {
         closing: false,
         canceledAt: null,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: progressRowSelect,
       orderBy: {
         createdAt: "desc",
       },
@@ -414,13 +473,7 @@ async function buildOwnerDashboardData(input?: {
         hiddenFromDashboard: false,
         canceledAt: null,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: progressRowSelect,
       orderBy: {
         updatedAt: "desc",
       },
@@ -450,13 +503,7 @@ async function buildOwnerDashboardData(input?: {
           },
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: monthlyKpiRowSelect,
       orderBy: {
         totalScore: "desc",
       },
@@ -472,13 +519,7 @@ async function buildOwnerDashboardData(input?: {
           },
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: yearlyKpiRowSelect,
       orderBy: {
         avgScore: "desc",
       },
@@ -493,6 +534,7 @@ async function buildOwnerDashboardData(input?: {
           },
         },
       },
+      distinct: ["year", "month"],
       select: {
         year: true,
         month: true,
@@ -529,18 +571,16 @@ async function buildOwnerDashboardData(input?: {
         createdAt: "desc",
       },
       take: 8,
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: stopCardRowSelect,
     }),
     prisma.companyFinance.findFirst({
       orderBy: {
         year: "desc",
+      },
+      select: {
+        year: true,
+        netProfit: true,
+        bonusPool: true,
       },
     }),
   ]);
@@ -576,13 +616,7 @@ async function buildOwnerDashboardData(input?: {
             },
           },
         },
-        include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
-        },
+        select: monthlyKpiRowSelect,
         orderBy: {
           user: {
             name: "asc",
@@ -637,7 +671,8 @@ async function buildOwnerDashboardData(input?: {
               },
             },
           },
-          include: {
+          select: {
+            totalScore: true,
             user: {
               select: {
                 id: true,
@@ -701,7 +736,7 @@ async function buildOwnerDashboardData(input?: {
     });
 
   return {
-    teamSize: users.length,
+    teamSize,
     teamUsers,
     monthlyKpiPeriodLabel: formatMonthYear(currentMonth, currentYear),
     monthlyKpiIsFinal: lockedKpiRows.some(
@@ -793,27 +828,14 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
             lt: tomorrowStart,
           },
         },
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-        },
+        select: attendanceRowSelect,
       }),
       prisma.dailyProgress.findMany({
         where: {
           closing: false,
           canceledAt: null,
         },
-        include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
-        },
+        select: progressRowSelect,
         orderBy: {
           createdAt: "desc",
         },
@@ -824,13 +846,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
           hiddenFromDashboard: false,
           canceledAt: null,
         },
-        include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
-        },
+        select: progressRowSelect,
         orderBy: {
           updatedAt: "desc",
         },
@@ -860,13 +876,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
             },
           },
         },
-        include: {
-          user: {
-            select: {
-              name: true,
-            },
-          },
-        },
+        select: monthlyKpiRowSelect,
       }),
     ]);
 
@@ -902,27 +912,13 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
           lt: tomorrowStart,
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: attendanceRowSelect,
     }),
     prisma.attendance.findMany({
       where: {
         userId,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
+      select: attendanceRowSelect,
       orderBy: {
         date: "desc",
       },
@@ -934,13 +930,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
         closing: false,
         canceledAt: null,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: progressRowSelect,
       orderBy: {
         createdAt: "desc",
       },
@@ -954,13 +944,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
           month: currentMonth,
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: monthlyKpiRowSelect,
     }),
     prisma.kpiYearly.findUnique({
       where: {
@@ -969,13 +953,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
           year: currentYear,
         },
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
+      select: yearlyKpiRowSelect,
     }),
     prisma.stopCard.findMany({
       where: {
@@ -985,14 +963,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
         createdAt: "desc",
       },
       take: 6,
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: stopCardRowSelect,
     }),
   ]);
 

@@ -14,6 +14,7 @@ import {
 } from "@/app/dashboard/actions";
 import { CompletedProgressRecapClient } from "@/components/completed-progress-recap-client";
 import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
+import { FormSubmitButton } from "@/components/form-submit-button";
 import { JOB_OPTIONS } from "@/lib/job-catalog";
 import {
   formatCurrency,
@@ -228,9 +229,19 @@ function JobSelectField({ defaultValue, label = "Pekerjaan" }: { defaultValue?: 
   );
 }
 
-function ActionButton({ children, disabled, tone = "dark" }: { children: ReactNode; disabled?: boolean; tone?: "dark" | "light" | "danger" | "success" }) {
+function ActionButton({
+  children,
+  disabled,
+  pendingLabel,
+  tone = "dark",
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  pendingLabel?: string;
+  tone?: "dark" | "light" | "danger" | "success";
+}) {
   const className = tone === "light" ? "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent" : tone === "danger" ? "bg-warning text-white hover:opacity-90" : tone === "success" ? "bg-success text-white hover:opacity-90" : "bg-foreground text-background hover:bg-foreground/90";
-  return <button className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} type="submit">{children}</button>;
+  return <FormSubmitButton className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} pendingLabel={pendingLabel}>{children}</FormSubmitButton>;
 }
 
 function AttendanceTable({ rows, emptyDescription }: { rows: OwnerDashboardData["attendanceToday"] | EmployeeDashboardData["recentAttendance"]; emptyDescription: string }) {
@@ -311,9 +322,9 @@ function AttendanceActions({ data }: { data: EmployeeDashboardData }) {
       </article>
       <article className="rounded-[24px] border border-line bg-surface p-5">
         <div className="flex flex-wrap gap-3">
-          <form action={checkInAction}><ActionButton disabled={hasCheckedIn && !isOff}>Check-in</ActionButton></form>
-          <form action={checkOutAction}><ActionButton disabled={!hasCheckedIn || hasCheckedOut || isOff} tone="success">Check-out</ActionButton></form>
-          <form action={markOffAction}><ActionButton disabled={hasCheckedIn} tone="light">OFF</ActionButton></form>
+          <form action={checkInAction}><ActionButton disabled={hasCheckedIn && !isOff} pendingLabel="Check-in...">Check-in</ActionButton></form>
+          <form action={checkOutAction}><ActionButton disabled={!hasCheckedIn || hasCheckedOut || isOff} pendingLabel="Check-out..." tone="success">Check-out</ActionButton></form>
+          <form action={markOffAction}><ActionButton disabled={hasCheckedIn} pendingLabel="Menyimpan..." tone="light">OFF</ActionButton></form>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <StatusChip label={data.attendanceToday ? attendanceLabel(data.attendanceToday.status) : "Belum ada status"} tone={data.attendanceToday ? attendanceTone(data.attendanceToday.status) : "pending"} />
@@ -335,7 +346,7 @@ function CreateProgressForm({ teamUsers }: { teamUsers: DashboardUser[] }) {
       <div className="lg:col-span-4">
         <TextareaField label="Detail pekerjaan" name="detail" placeholder="Tulis detail singkat, brief, atau catatan khusus pekerjaan ini." />
       </div>
-      <div className="lg:col-span-4"><ActionButton>Tambah progres</ActionButton></div>
+      <div className="lg:col-span-4"><ActionButton pendingLabel="Menambahkan...">Tambah progres</ActionButton></div>
     </form>
   );
 }
@@ -354,7 +365,7 @@ function EmployeeProgressList({ rows }: { rows: ProgressItem[] }) {
             <input name="progressId" type="hidden" value={row.id} />
             <InputField defaultValue={formatDateInput(row.tanggalSelesai)} label="Tanggal selesai" name="tanggalSelesai" type="date" />
             <InputField defaultValue={formatDateInput(row.revisiDone)} label="Revisi done" name="revisiDone" type="date" />
-            <div className="md:col-span-2"><ActionButton>Simpan update saya</ActionButton></div>
+            <div className="md:col-span-2"><ActionButton pendingLabel="Menyimpan...">Simpan update saya</ActionButton></div>
           </form>
         </article>
       ))}
@@ -411,7 +422,7 @@ function SyncKpiCard() {
       <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">KPI Sync</div>
       <p className="mt-4 text-lg font-semibold text-foreground">Sinkron KPI bulan berjalan</p>
       <p className="mt-2 text-sm leading-7 text-muted">Jalankan ulang perhitungan KPI untuk seluruh user bila Anda baru mengubah banyak data progres atau absensi sekaligus.</p>
-      <form action={syncCurrentMonthKpiAction} className="mt-5"><ActionButton>Sinkron sekarang</ActionButton></form>
+      <form action={syncCurrentMonthKpiAction} className="mt-5"><ActionButton pendingLabel="Menyinkronkan...">Sinkron sekarang</ActionButton></form>
     </article>
   );
 }
@@ -421,7 +432,7 @@ function FinanceForm({ data }: { data: OwnerDashboardData }) {
     <form action={saveFinanceAction} className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-3">
       <InputField defaultValue={String(data.activeFinanceYear)} label="Tahun" name="year" required type="number" />
       <InputField defaultValue={data.finance ? String(data.finance.netProfit) : "0"} label="Net profit" name="netProfit" required type="number" />
-      <div className="flex items-end"><ActionButton>Simpan finance</ActionButton></div>
+      <div className="flex items-end"><ActionButton pendingLabel="Menyimpan..." >Simpan finance</ActionButton></div>
     </form>
   );
 }
@@ -484,7 +495,7 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
           )}
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <ActionButton tone="light">Tampilkan KPI final</ActionButton>
+          <ActionButton pendingLabel="Memuat..." tone="light">Tampilkan KPI final</ActionButton>
           {data.selectedLockedKpiMonth ? (
             <a
               className="button-press inline-flex h-11 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold text-foreground transition hover:border-accent/30 hover:text-accent"
@@ -552,7 +563,7 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
         </div>
         <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
         <div className="xl:col-span-4">
-          <ActionButton tone="light">Hitung simulasi uang</ActionButton>
+          <ActionButton pendingLabel="Menghitung..." tone="light">Hitung simulasi uang</ActionButton>
         </div>
       </form>
       {data.simulationRows.length === 0 ? (
@@ -667,7 +678,7 @@ function EmployeeStopCardForm() {
         Isi laporan akan tampil anonim di dashboard owner.
       </div>
       <div>
-        <ActionButton>Kirim STOP CARD</ActionButton>
+        <ActionButton pendingLabel="Mengirim...">Kirim STOP CARD</ActionButton>
       </div>
     </form>
   );
@@ -751,7 +762,7 @@ function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) 
               </select>
             </label>
             <div>
-              <ActionButton tone="light">Simpan status</ActionButton>
+              <ActionButton pendingLabel="Menyimpan..." tone="light">Simpan status</ActionButton>
             </div>
           </form>
         </article>

@@ -12,9 +12,12 @@ export function PwaRegister() {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Installability should not fail hard when SW registration is unavailable.
-    });
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => registration.update())
+      .catch(() => {
+        // Installability should not fail hard when SW registration is unavailable.
+      });
   }, []);
 
   return null;

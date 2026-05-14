@@ -10,6 +10,9 @@ const fontDisplay = Bebas_Neue({
   weight: "400",
 });
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function LoginPage() {
   if (await hasSupabaseSessionCookie()) {
     const profile = await getCurrentUserProfile();
