@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { prisma } from "@/lib/prisma";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -13,7 +14,7 @@ export type AuthenticatedUser = {
   role: UserRole;
 };
 
-export async function getAuthState() {
+export const getAuthState = cache(async () => {
   if (!isSupabaseConfigured()) {
     return {
       sessionUser: null,
@@ -78,7 +79,7 @@ export async function getAuthState() {
     sessionUser: user,
     profile,
   };
-}
+});
 
 export async function getCurrentUserProfile() {
   const authState = await getAuthState();

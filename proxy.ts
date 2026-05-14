@@ -1,10 +1,17 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { env, isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured } from "@/lib/env";
+
+function hasSupabaseAuthCookie(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some(
+      ({ name }) => name.startsWith("sb-") && name.includes("-auth-token"),
+    );
+}
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request,
   });
 
@@ -12,36 +19,15 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
   const isProtectedRoute =
     pathname.startsWith("/dashboard") || pathname.startsWith("/settings");
-  const isLoginRoute = pathname.startsWith("/login");
+  const hasAuthCookie = hasSupabaseAuthCookie(request);
 
-  if (isProtectedRoute && !user) {
+  // Fast-path anonymous requests without calling Supabase on every click.
+  // Authoritative auth/profile checks still happen inside server components and actions.
+  if (isProtectedRoute && !hasAuthCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (isLoginRoute && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
