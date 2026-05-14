@@ -87,6 +87,18 @@ function refreshDashboard() {
   revalidatePath("/dashboard");
 }
 
+function toIsoDateValue(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value.toISOString();
+}
+
 function serializeManagerProgressRow(row: {
   id: string;
   pekerjaan: string;
@@ -111,15 +123,15 @@ function serializeManagerProgressRow(row: {
     detail: row.detail,
     userId: row.userId,
     name: row.user.name,
-    targetSelesai: row.targetSelesai?.toISOString() ?? null,
-    tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
-    tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
-    tanggalRevisi: row.tanggalRevisi?.toISOString() ?? null,
-    revisiDone: row.revisiDone?.toISOString() ?? null,
+    targetSelesai: toIsoDateValue(row.targetSelesai),
+    tanggalMulai: toIsoDateValue(row.tanggalMulai),
+    tanggalSelesai: toIsoDateValue(row.tanggalSelesai),
+    tanggalRevisi: toIsoDateValue(row.tanggalRevisi),
+    revisiDone: toIsoDateValue(row.revisiDone),
     closing: row.closing,
     isDone: row.isDone,
-    canceledAt: row.canceledAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
+    canceledAt: toIsoDateValue(row.canceledAt),
+    createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
   };
 }
 

@@ -115,16 +115,28 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
+function toIsoDateValue(value?: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value.toISOString();
+}
+
 function serializeProgressRows(rows: ProgressItem[]): ManagerProgressItem[] {
   return rows.map((row) => ({
     ...row,
-    targetSelesai: row.targetSelesai?.toISOString() ?? null,
-    tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
-    tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
-    tanggalRevisi: row.tanggalRevisi?.toISOString() ?? null,
-    revisiDone: row.revisiDone?.toISOString() ?? null,
-    canceledAt: row.canceledAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
+    targetSelesai: toIsoDateValue(row.targetSelesai),
+    tanggalMulai: toIsoDateValue(row.tanggalMulai),
+    tanggalSelesai: toIsoDateValue(row.tanggalSelesai),
+    tanggalRevisi: toIsoDateValue(row.tanggalRevisi),
+    revisiDone: toIsoDateValue(row.revisiDone),
+    canceledAt: toIsoDateValue(row.canceledAt),
+    createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
   }));
 }
 
@@ -370,9 +382,9 @@ function CompletedProgressRecap({
           pekerjaan: row.pekerjaan,
           detail: row.detail,
           name: row.name,
-          tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
-          tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
-          revisiDone: row.revisiDone?.toISOString() ?? null,
+          tanggalMulai: toIsoDateValue(row.tanggalMulai),
+          tanggalSelesai: toIsoDateValue(row.tanggalSelesai),
+          revisiDone: toIsoDateValue(row.revisiDone),
         }))}
       />
     );
