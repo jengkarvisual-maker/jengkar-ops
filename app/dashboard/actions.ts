@@ -139,6 +139,7 @@ function redirectWithFeedback(type: FeedbackType, message: string): never {
   const params = new URLSearchParams({
     feedbackType: type,
     feedbackMessage: message,
+    feedbackAt: Date.now().toString(),
   });
 
   redirect(`/dashboard?${params.toString()}`);
