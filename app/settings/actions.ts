@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { UserRole } from "@prisma/client";
 
@@ -71,6 +71,24 @@ type MaintenanceRangeResult =
       ok: false;
       state: MaintenanceActionState;
     };
+
+const OPS_DASHBOARD_TAG = "ops-dashboard";
+const OPS_SETTINGS_TAG = "ops-settings";
+
+function refreshDashboard() {
+  revalidateTag(OPS_DASHBOARD_TAG, "max");
+  revalidatePath("/dashboard");
+}
+
+function refreshSettings() {
+  revalidateTag(OPS_SETTINGS_TAG, "max");
+  revalidatePath("/settings");
+}
+
+function refreshDashboardAndSettings() {
+  refreshDashboard();
+  refreshSettings();
+}
 
 function ensureOwner(user: Awaited<ReturnType<typeof requireAuthenticatedUser>>) {
   if (user.role !== UserRole.OWNER) {
@@ -366,8 +384,7 @@ export async function attendanceMaintenanceAction(
 
   const result = await prisma.attendance.deleteMany({ where });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
+  refreshDashboardAndSettings();
 
   return {
     error: null,
@@ -446,8 +463,7 @@ export async function hiddenProgressMaintenanceAction(
 
   const result = await prisma.dailyProgress.deleteMany({ where });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
+  refreshDashboardAndSettings();
 
   return {
     error: null,
@@ -603,8 +619,7 @@ export async function createEmployeeAction(
     };
   }
 
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
+  refreshDashboardAndSettings();
 
   return {
     error: null,
@@ -723,7 +738,7 @@ export async function resetManagedPasswordAction(
     });
   }
 
-  revalidatePath("/settings");
+  refreshSettings();
 
   return {
     error: null,
@@ -784,8 +799,7 @@ export async function lockKpiMonthAction(
     },
   });
 
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
+  refreshDashboardAndSettings();
 
   return {
     error: null,
@@ -877,7 +891,7 @@ export async function changePasswordAction(
     };
   }
 
-  revalidatePath("/settings");
+  refreshSettings();
 
   return {
     error: null,

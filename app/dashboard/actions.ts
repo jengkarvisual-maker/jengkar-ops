@@ -1,7 +1,7 @@
 "use server";
 
 import { AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@/lib/auth";
@@ -18,6 +18,12 @@ import {
 } from "@/lib/utils";
 
 type FeedbackType = "success" | "error";
+const OPS_DASHBOARD_TAG = "ops-dashboard";
+
+function refreshDashboard() {
+  revalidateTag(OPS_DASHBOARD_TAG, "max");
+  revalidatePath("/dashboard");
+}
 
 function redirectWithFeedback(type: FeedbackType, message: string): never {
   const params = new URLSearchParams({
@@ -170,7 +176,7 @@ export async function checkInAction() {
   });
 
   await syncUserKpisForDates(user.id, [now]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Check-in berhasil dicatat.");
 }
 
@@ -206,7 +212,7 @@ export async function checkOutAction() {
   });
 
   await syncUserKpisForDates(user.id, [now]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Check-out berhasil dicatat.");
 }
 
@@ -253,7 +259,7 @@ export async function markOffAction() {
   });
 
   await syncUserKpisForDates(user.id, [now]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Status OFF berhasil dicatat.");
 }
 
@@ -276,7 +282,7 @@ export async function submitStopCardAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback(
     "success",
     "STOP CARD berhasil dikirim. Owner akan melihat isi laporan ini tanpa identitas pengirim.",
@@ -315,7 +321,7 @@ export async function updateStopCardStatusAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Status STOP CARD berhasil diperbarui.");
 }
 
@@ -355,7 +361,7 @@ export async function createProgressAction(formData: FormData) {
     progress.targetSelesai,
     progress.tanggalMulai,
   ]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Progres baru berhasil ditambahkan.");
 }
 
@@ -439,7 +445,7 @@ export async function updateManagerProgressAction(formData: FormData) {
   }
 
   await syncUserKpisForDates(updated.userId, affectedDates);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Progres berhasil diperbarui.");
 }
 
@@ -485,7 +491,7 @@ export async function closeProgressAction(formData: FormData) {
     progress.revisiDone,
     updated.tanggalSelesai,
   ]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Progres berhasil dipindahkan ke daftar completed.");
 }
 
@@ -535,7 +541,7 @@ export async function cancelProgressAction(formData: FormData) {
     progress.revisiDone,
     updated.canceledAt,
   ]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback(
     "success",
     "Pekerjaan berhasil dibatalkan dan tidak ikut masuk penilaian KPI.",
@@ -577,7 +583,7 @@ export async function deleteCompletedProgressAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback(
     "success",
     "Pekerjaan berhasil disembunyikan dari dashboard tanpa menghapus nilai KPI yang sudah terbentuk.",
@@ -605,7 +611,7 @@ export async function deleteAllCompletedProgressAction() {
     },
   });
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback(
     "success",
     result.count > 0
@@ -656,7 +662,7 @@ export async function updateEmployeeProgressAction(formData: FormData) {
     updated.tanggalSelesai,
     updated.revisiDone,
   ]);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Update progres pribadi berhasil disimpan.");
 }
 
@@ -686,7 +692,7 @@ export async function saveFinanceAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Data finance tahunan berhasil diperbarui.");
 }
 
@@ -699,6 +705,6 @@ export async function syncCurrentMonthKpiAction() {
 
   const { year, month } = getAppDateParts(new Date());
   await syncAllKpisForMonth(year, month);
-  revalidatePath("/dashboard");
+  refreshDashboard();
   redirectWithFeedback("success", "Sinkron KPI bulan berjalan selesai dijalankan.");
 }
