@@ -106,7 +106,7 @@ export function CompletedProgressRecapClient({
         </p>
         <form action={deleteAllCompletedProgressAction}>
           <button
-            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-danger px-4 text-sm font-semibold text-white transition hover:bg-danger/90"
+            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90"
             type="submit"
           >
             Sembunyikan semua recap
@@ -146,7 +146,7 @@ export function CompletedProgressRecapClient({
               </div>
               <div className="mt-4">
                 <button
-                  className="button-press inline-flex h-11 items-center justify-center rounded-full bg-danger px-4 text-sm font-semibold text-white transition hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isRowPending}
                   onClick={() => void handleHide(row.id)}
                   type="button"
