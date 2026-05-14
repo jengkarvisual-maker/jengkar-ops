@@ -1,5 +1,4 @@
 import { UserRole } from "@prisma/client";
-import { unstable_cache } from "next/cache";
 
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SettingsAdminTools } from "@/components/settings-admin-tools";
@@ -11,9 +10,6 @@ import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
-
-const OPS_SETTINGS_TAG = "ops-settings";
-const SETTINGS_REVALIDATE_SECONDS = 10;
 
 export default async function SettingsPage() {
   const user = await requireAuthenticatedUser();
@@ -105,197 +101,163 @@ export default async function SettingsPage() {
 }
 
 async function getResettableUsers(role: UserRole) {
-  return unstable_cache(
-    async () =>
-      prisma.user.findMany({
-        where:
-          role === UserRole.OWNER
-            ? {
-                role: {
-                  in: [UserRole.ADMIN, UserRole.KARYAWAN],
-                },
-              }
-            : {
-                role: UserRole.KARYAWAN,
-              },
-        orderBy: {
-          name: "asc",
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      }),
-    ["settings-resettable-users", role],
-    {
-      revalidate: SETTINGS_REVALIDATE_SECONDS,
-      tags: [OPS_SETTINGS_TAG],
+  return prisma.user.findMany({
+    where:
+      role === UserRole.OWNER
+        ? {
+            role: {
+              in: [UserRole.ADMIN, UserRole.KARYAWAN],
+            },
+          }
+        : {
+            role: UserRole.KARYAWAN,
+          },
+    orderBy: {
+      name: "asc",
     },
-  )();
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+  });
 }
 
 async function getOwnerKpiLockData() {
-  return unstable_cache(
-    async () => {
-      const currentParts = getAppDateParts(new Date());
-      const currentKey = `${currentParts.year}-${currentParts.month}`;
-      const [kpiRows, lockedRows] = await Promise.all([
-        prisma.kpiMonthly.findMany({
-          where: {
-            user: {
-              role: UserRole.KARYAWAN,
-            },
-          },
+  const currentParts = getAppDateParts(new Date());
+  const currentKey = `${currentParts.year}-${currentParts.month}`;
+  const [kpiRows, lockedRows] = await Promise.all([
+    prisma.kpiMonthly.findMany({
+      where: {
+        user: {
+          role: UserRole.KARYAWAN,
+        },
+      },
+      select: {
+        year: true,
+        month: true,
+      },
+      orderBy: [
+        {
+          year: "desc",
+        },
+        {
+          month: "desc",
+        },
+      ],
+    }),
+    prisma.kpiMonthLock.findMany({
+      include: {
+        lockedBy: {
           select: {
-            year: true,
-            month: true,
+            name: true,
           },
-          orderBy: [
-            {
-              year: "desc",
-            },
-            {
-              month: "desc",
-            },
-          ],
-        }),
-        prisma.kpiMonthLock.findMany({
-          include: {
-            lockedBy: {
-              select: {
-                name: true,
-              },
-            },
-          },
-          orderBy: [
-            {
-              year: "desc",
-            },
-            {
-              month: "desc",
-            },
-          ],
-        }),
-      ]);
+        },
+      },
+      orderBy: [
+        {
+          year: "desc",
+        },
+        {
+          month: "desc",
+        },
+      ],
+    }),
+  ]);
 
-      const lockedKeys = new Set(lockedRows.map((row) => `${row.year}-${row.month}`));
-      const availableMonthKeys = new Set<string>();
+  const lockedKeys = new Set(lockedRows.map((row) => `${row.year}-${row.month}`));
+  const availableMonthKeys = new Set<string>();
 
-      kpiRows.forEach((row) => {
-        const monthKey = `${row.year}-${row.month}`;
+  kpiRows.forEach((row) => {
+    const monthKey = `${row.year}-${row.month}`;
 
-        if (monthKey !== currentKey && !lockedKeys.has(monthKey)) {
-          availableMonthKeys.add(monthKey);
-        }
-      });
+    if (monthKey !== currentKey && !lockedKeys.has(monthKey)) {
+      availableMonthKeys.add(monthKey);
+    }
+  });
 
-      const availableMonths = Array.from(availableMonthKeys)
-        .map((monthKey) => {
-          const [year, month] = monthKey.split("-").map(Number);
-
-          return {
-            key: monthKey,
-            label: formatMonthYear(month, year),
-            year,
-            month,
-          };
-        })
-        .sort((left, right) => {
-          if (left.year !== right.year) {
-            return right.year - left.year;
-          }
-
-          return right.month - left.month;
-        });
-
-      const lockedMonths = lockedRows.map((row) => ({
-        key: `${row.year}-${row.month}`,
-        label: formatMonthYear(row.month, row.year),
-        lockedAt: row.lockedAt.toISOString(),
-        lockedByName: row.lockedBy.name,
-      }));
+  const availableMonths = Array.from(availableMonthKeys)
+    .map((monthKey) => {
+      const [year, month] = monthKey.split("-").map(Number);
 
       return {
-        availableMonths,
-        lockedMonths,
+        key: monthKey,
+        label: formatMonthYear(month, year),
+        year,
+        month,
       };
-    },
-    ["settings-owner-kpi-lock-data"],
-    {
-      revalidate: SETTINGS_REVALIDATE_SECONDS,
-      tags: [OPS_SETTINGS_TAG],
-    },
-  )();
+    })
+    .sort((left, right) => {
+      if (left.year !== right.year) {
+        return right.year - left.year;
+      }
+
+      return right.month - left.month;
+    });
+
+  const lockedMonths = lockedRows.map((row) => ({
+    key: `${row.year}-${row.month}`,
+    label: formatMonthYear(row.month, row.year),
+    lockedAt: row.lockedAt.toISOString(),
+    lockedByName: row.lockedBy.name,
+  }));
+
+  return {
+    availableMonths,
+    lockedMonths,
+  };
 }
 
 async function getOwnerTeamMembers() {
-  return unstable_cache(
-    async () =>
-      prisma.user.findMany({
-        where: {
-          role: UserRole.KARYAWAN,
-          email: {
-            notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-          },
-        },
-        orderBy: {
-          name: "asc",
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      }),
-    ["settings-owner-team-members"],
-    {
-      revalidate: SETTINGS_REVALIDATE_SECONDS,
-      tags: [OPS_SETTINGS_TAG],
+  return prisma.user.findMany({
+    where: {
+      role: UserRole.KARYAWAN,
+      email: {
+        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+      },
     },
-  )();
+    orderBy: {
+      name: "asc",
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
 }
 
 async function getAttendanceSafeMonths() {
-  return unstable_cache(
-    async () => {
-      const currentMonthStart = startOfMonth(new Date());
-      const attendanceRows = await prisma.attendance.findMany({
-        where: {
-          date: {
-            lt: currentMonthStart,
-          },
-        },
-        select: {
-          date: true,
-        },
-        orderBy: {
-          date: "desc",
-        },
-      });
-
-      const monthKeys = new Set<string>();
-
-      attendanceRows.forEach((row) => {
-        const { year, month } = getAppDateParts(row.date);
-        monthKeys.add(`${year}-${month}`);
-      });
-
-      return Array.from(monthKeys)
-        .map((key) => {
-          const [year, month] = key.split("-").map(Number);
-          return {
-            key,
-            label: formatMonthYear(month, year),
-          };
-        })
-        .slice(0, 12);
+  const currentMonthStart = startOfMonth(new Date());
+  const attendanceRows = await prisma.attendance.findMany({
+    where: {
+      date: {
+        lt: currentMonthStart,
+      },
     },
-    ["settings-attendance-safe-months"],
-    {
-      revalidate: SETTINGS_REVALIDATE_SECONDS,
-      tags: [OPS_SETTINGS_TAG],
+    select: {
+      date: true,
     },
-  )();
+    orderBy: {
+      date: "desc",
+    },
+  });
+
+  const monthKeys = new Set<string>();
+
+  attendanceRows.forEach((row) => {
+    const { year, month } = getAppDateParts(row.date);
+    monthKeys.add(`${year}-${month}`);
+  });
+
+  return Array.from(monthKeys)
+    .map((key) => {
+      const [year, month] = key.split("-").map(Number);
+      return {
+        key,
+        label: formatMonthYear(month, year),
+      };
+    })
+    .slice(0, 12);
 }

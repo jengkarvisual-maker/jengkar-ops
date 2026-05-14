@@ -1,5 +1,4 @@
 import { AttendanceStatus, UserRole } from "@prisma/client";
-import { unstable_cache } from "next/cache";
 
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -28,9 +27,6 @@ import type {
   ProgressItem,
   YearlyKpiItem,
 } from "@/types/dashboard";
-
-const OPS_DASHBOARD_TAG = "ops-dashboard";
-const DASHBOARD_REVALIDATE_SECONDS = 10;
 
 function mapAttendanceRows(
   rows: Array<{
@@ -770,21 +766,7 @@ export async function getOwnerDashboardData(input?: {
   simulationEndMonthKey?: string;
   simulationStartMonthKey?: string;
 }): Promise<OwnerDashboardData> {
-  const key = JSON.stringify({
-    lockedMonthKey: input?.lockedMonthKey ?? "",
-    simulationAmount: input?.simulationAmount ?? "",
-    simulationEndMonthKey: input?.simulationEndMonthKey ?? "",
-    simulationStartMonthKey: input?.simulationStartMonthKey ?? "",
-  });
-
-  return unstable_cache(
-    async () => buildOwnerDashboardData(input),
-    ["owner-dashboard", key],
-    {
-      revalidate: DASHBOARD_REVALIDATE_SECONDS,
-      tags: [OPS_DASHBOARD_TAG],
-    },
-  )();
+  return buildOwnerDashboardData(input);
 }
 
 async function buildAdminDashboardData(): Promise<AdminDashboardData> {
@@ -902,10 +884,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  return unstable_cache(async () => buildAdminDashboardData(), ["admin-dashboard"], {
-    revalidate: DASHBOARD_REVALIDATE_SECONDS,
-    tags: [OPS_DASHBOARD_TAG],
-  })();
+  return buildAdminDashboardData();
 }
 
 async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashboardData> {
@@ -1033,14 +1012,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
 }
 
 export async function getEmployeeDashboardData(userId: string): Promise<EmployeeDashboardData> {
-  return unstable_cache(
-    async () => buildEmployeeDashboardData(userId),
-    ["employee-dashboard", userId],
-    {
-      revalidate: DASHBOARD_REVALIDATE_SECONDS,
-      tags: [OPS_DASHBOARD_TAG],
-    },
-  )();
+  return buildEmployeeDashboardData(userId);
 }
 
 export function getOwnerOverviewLabel(month: number, year: number) {
