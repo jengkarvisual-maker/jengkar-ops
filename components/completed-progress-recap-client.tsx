@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -9,7 +9,9 @@ import {
 } from "@/app/dashboard/actions";
 import { formatDate } from "@/lib/utils";
 
-type CompletedProgressRecapRow = {
+export const COMPLETED_PROGRESS_UPSERT_EVENT = "ops:completed-progress-upsert";
+
+export type CompletedProgressRecapRow = {
   id: string;
   pekerjaan: string;
   detail: string | null;
@@ -69,6 +71,31 @@ export function CompletedProgressRecapClient({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isBulkPending, setIsBulkPending] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
+
+  useEffect(() => {
+    function handleUpsert(event: Event) {
+      const detail = (event as CustomEvent<CompletedProgressRecapRow>).detail;
+
+      if (!detail) {
+        return;
+      }
+
+      setLocalRows((currentRows) => [
+        detail,
+        ...currentRows.filter((row) => row.id !== detail.id),
+      ]);
+    }
+
+    window.addEventListener(COMPLETED_PROGRESS_UPSERT_EVENT, handleUpsert);
+
+    return () => {
+      window.removeEventListener(COMPLETED_PROGRESS_UPSERT_EVENT, handleUpsert);
+    };
+  }, []);
 
   const hasRows = localRows.length > 0;
   const sortedRows = useMemo(() => localRows, [localRows]);

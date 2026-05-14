@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { signOutAction } from "@/app/login/actions";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default function UnauthorizedPage() {
   return (
@@ -23,11 +23,11 @@ export default function UnauthorizedPage() {
           >
             Kembali ke landing page
           </Link>
-          <form action={signOutAction}>
-            <button className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 font-semibold text-background transition hover:bg-foreground/90" type="submit">
-              Keluar dari sesi ini
-            </button>
-          </form>
+          <SignOutButton
+            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+            label="Keluar dari sesi ini"
+            pendingLabel="Keluar..."
+          />
         </div>
       </div>
     </main>

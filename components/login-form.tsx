@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { loginAction, type LoginActionState } from "@/app/login/actions";
 
 const initialState: LoginActionState = {
   error: null,
+  redirectTo: null,
 };
 
 type LoginFormProps = {
@@ -13,9 +15,21 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ submitDisabled = false }: LoginFormProps) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
-  const isSubmitLocked = submitDisabled || isPending;
+  const [isRedirecting, startTransition] = useTransition();
+  const isSubmitLocked = submitDisabled || isPending || isRedirecting;
+
+  useEffect(() => {
+    if (!state.redirectTo) {
+      return;
+    }
+
+    startTransition(() => {
+      router.replace(state.redirectTo ?? "/dashboard");
+    });
+  }, [router, startTransition, state.redirectTo]);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -71,7 +85,11 @@ export function LoginForm({ submitDisabled = false }: LoginFormProps) {
         disabled={isSubmitLocked}
         type="submit"
       >
-        {isPending ? "Memproses..." : submitDisabled ? "Login belum aktif" : "Masuk ke akun"}
+        {isPending || isRedirecting
+          ? "Memproses..."
+          : submitDisabled
+            ? "Login belum aktif"
+            : "Masuk ke akun"}
       </button>
     </form>
   );

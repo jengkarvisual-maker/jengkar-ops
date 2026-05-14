@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { UserRole } from "@prisma/client";
 
-import { signOutAction } from "@/app/login/actions";
+import { SignOutButton } from "@/components/sign-out-button";
 import { APP_NAME } from "@/lib/constants";
 import { getRoleLabel } from "@/lib/utils";
 
@@ -68,14 +68,7 @@ export function DashboardShell({
                     {auxiliaryLink.label}
                   </Link>
                 ) : null}
-                <form action={signOutAction}>
-                  <button
-                    className="button-press inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90"
-                    type="submit"
-                  >
-                    Keluar
-                  </button>
-                </form>
+                <SignOutButton />
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Bebas_Neue } from "next/font/google";
 
 import { LoginForm } from "@/components/login-form";
-import { getCurrentUserProfile } from "@/lib/auth";
+import { getCurrentUserProfile, hasSupabaseSessionCookie } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 
 const fontDisplay = Bebas_Neue({
@@ -11,10 +11,12 @@ const fontDisplay = Bebas_Neue({
 });
 
 export default async function LoginPage() {
-  const profile = await getCurrentUserProfile();
+  if (await hasSupabaseSessionCookie()) {
+    const profile = await getCurrentUserProfile();
 
-  if (profile) {
-    redirect("/dashboard");
+    if (profile) {
+      redirect("/dashboard");
+    }
   }
 
   const configured = isSupabaseConfigured();

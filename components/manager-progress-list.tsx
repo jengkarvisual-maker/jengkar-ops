@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   cancelProgressAction,
+  closeProgressInlineAction,
   closeProgressAction,
+  type ManagerProgressMutationRow,
+  updateManagerProgressInlineAction,
   updateManagerProgressAction,
 } from "@/app/dashboard/actions";
+import {
+  COMPLETED_PROGRESS_UPSERT_EVENT,
+  type CompletedProgressRecapRow,
+} from "@/components/completed-progress-recap-client";
 import { getJobGroupLabel, getJobWeight, JOB_OPTIONS } from "@/lib/job-catalog";
 import type { DashboardUser, ProgressItem } from "@/types/dashboard";
 
@@ -102,9 +110,11 @@ function EmptyState({ title, description }: { title: string; description: string
 
 function ActionButton({
   children,
+  disabled = false,
   tone = "dark",
 }: {
   children: ReactNode;
+  disabled?: boolean;
   tone?: "dark" | "light" | "danger" | "success";
 }) {
   const className =
@@ -117,7 +127,11 @@ function ActionButton({
           : "bg-foreground text-background hover:bg-foreground/90";
 
   return (
-    <button className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${className}`} type="submit">
+    <button
+      className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      disabled={disabled}
+      type="submit"
+    >
       {children}
     </button>
   );
@@ -226,10 +240,102 @@ export function ManagerProgressList({
   rows: ManagerProgressItem[];
   teamUsers: DashboardUser[];
 }) {
+  const router = useRouter();
+  const [localRows, setLocalRows] = useState(rows);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [pendingRowId, setPendingRowId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"save" | "close" | null>(null);
+  const [isPending, startTransition] = useTransition();
   const initialUserId = rows[0]?.userId ?? teamUsers[0]?.id ?? "";
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
   const selectedUser = teamUsers.find((user) => user.id === selectedUserId) ?? teamUsers[0];
-  const selectedRows = rows.filter((row) => row.userId === selectedUser?.id);
+  const selectedRows = useMemo(
+    () => localRows.filter((row) => row.userId === selectedUser?.id),
+    [localRows, selectedUser?.id],
+  );
+
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
+
+  function toCompletedRow(row: ManagerProgressMutationRow): CompletedProgressRecapRow {
+    return {
+      id: row.id,
+      pekerjaan: row.pekerjaan,
+      detail: row.detail,
+      name: row.name,
+      tanggalMulai: row.tanggalMulai,
+      tanggalSelesai: row.tanggalSelesai,
+      revisiDone: row.revisiDone,
+    };
+  }
+
+  function syncDashboardInBackground() {
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
+  async function handleSave(event: FormEvent<HTMLFormElement>, progressId: string) {
+    event.preventDefault();
+    setFeedback(null);
+    setPendingRowId(progressId);
+    setPendingAction("save");
+
+    const formData = new FormData(event.currentTarget);
+    const result = await updateManagerProgressInlineAction(formData);
+
+    if (!result.ok) {
+      setPendingRowId(null);
+      setPendingAction(null);
+      setFeedback(result.message);
+      return;
+    }
+
+    if (result.movedToCompleted) {
+      setLocalRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
+      window.dispatchEvent(
+        new CustomEvent<CompletedProgressRecapRow>(COMPLETED_PROGRESS_UPSERT_EVENT, {
+          detail: toCompletedRow(result.row),
+        }),
+      );
+    } else {
+      setLocalRows((currentRows) =>
+        currentRows.map((row) => (row.id === result.row.id ? result.row : row)),
+      );
+    }
+
+    setPendingRowId(null);
+    setPendingAction(null);
+    setFeedback(result.message);
+    syncDashboardInBackground();
+  }
+
+  async function handleQuickClose(progressId: string) {
+    setFeedback(null);
+    setPendingRowId(progressId);
+    setPendingAction("close");
+
+    const result = await closeProgressInlineAction(progressId);
+
+    if (!result.ok) {
+      setPendingRowId(null);
+      setPendingAction(null);
+      setFeedback(result.message);
+      return;
+    }
+
+    setLocalRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
+    window.dispatchEvent(
+      new CustomEvent<CompletedProgressRecapRow>(COMPLETED_PROGRESS_UPSERT_EVENT, {
+        detail: toCompletedRow(result.row),
+      }),
+    );
+    setPendingRowId(null);
+    setPendingAction(null);
+    setFeedback(result.message);
+    syncDashboardInBackground();
+  }
 
   if (teamUsers.length === 0) {
     return <EmptyState description="Belum ada akun karyawan yang bisa dipilih untuk pengelolaan pekerjaan." title="Belum ada karyawan" />;
@@ -255,6 +361,13 @@ export function ManagerProgressList({
         </p>
       </div>
 
+      {feedback ? (
+        <div className="rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm leading-7 text-success">
+          {feedback}
+          {isPending ? " Menyegarkan dashboard..." : null}
+        </div>
+      ) : null}
+
       {selectedRows.length === 0 ? (
         <EmptyState description="Pekerjaan aktif karyawan terpilih akan muncul di sini. Pekerjaan yang dibatalkan atau sudah closing tidak tampil di daftar berjalan." title="Belum ada pekerjaan berjalan" />
       ) : (
@@ -272,7 +385,11 @@ export function ManagerProgressList({
                   <StatusChip label={row.closing ? "Closed" : "Aktif"} tone={row.closing ? "success" : "default"} />
                 </div>
               </div>
-              <form action={updateManagerProgressAction} className="mt-5 grid gap-4 xl:grid-cols-3">
+              <form
+                action={updateManagerProgressAction}
+                className="mt-5 grid gap-4 xl:grid-cols-3"
+                onSubmit={(event) => void handleSave(event, row.id)}
+              >
                 <input name="progressId" type="hidden" value={row.id} />
                 <JobSelectField defaultValue={row.pekerjaan} />
                 <EmployeeSelectField defaultValue={row.userId} teamUsers={teamUsers} />
@@ -285,13 +402,26 @@ export function ManagerProgressList({
                 <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.isDone} name="isDone" type="checkbox" />Tandai done</label>
                 <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.closing} name="closing" type="checkbox" />Tandai closing</label>
                 <div className="flex flex-wrap gap-3 xl:col-span-3">
-                  <ActionButton>Simpan perubahan</ActionButton>
+                  <ActionButton disabled={pendingRowId === row.id && pendingAction === "save"}>
+                    {pendingRowId === row.id && pendingAction === "save" ? "Menyimpan..." : "Simpan perubahan"}
+                  </ActionButton>
                 </div>
               </form>
               <div className="mt-3 flex flex-wrap gap-3">
-                <form action={closeProgressAction}>
+                <form
+                  action={closeProgressAction}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleQuickClose(row.id);
+                  }}
+                >
                   <input name="progressId" type="hidden" value={row.id} />
-                  <ActionButton tone="success">Closing cepat</ActionButton>
+                  <ActionButton
+                    disabled={pendingRowId === row.id && pendingAction === "close"}
+                    tone="success"
+                  >
+                    {pendingRowId === row.id && pendingAction === "close" ? "Closing..." : "Closing cepat"}
+                  </ActionButton>
                 </form>
                 <form
                   action={cancelProgressAction}

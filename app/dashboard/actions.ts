@@ -42,9 +42,85 @@ export type HideAllCompletedProgressResult =
       message: string;
     };
 
+export type ManagerProgressMutationRow = {
+  id: string;
+  pekerjaan: string;
+  detail: string | null;
+  userId: string;
+  name: string;
+  targetSelesai: string | null;
+  tanggalMulai: string | null;
+  tanggalSelesai: string | null;
+  tanggalRevisi: string | null;
+  revisiDone: string | null;
+  closing: boolean;
+  isDone: boolean;
+  canceledAt: string | null;
+  createdAt: string;
+};
+
+export type UpdateManagerProgressInlineResult =
+  | {
+      ok: true;
+      row: ManagerProgressMutationRow;
+      movedToCompleted: boolean;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type CloseProgressInlineResult =
+  | {
+      ok: true;
+      row: ManagerProgressMutationRow;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 function refreshDashboard() {
   revalidateTag(OPS_DASHBOARD_TAG, "max");
   revalidatePath("/dashboard");
+}
+
+function serializeManagerProgressRow(row: {
+  id: string;
+  pekerjaan: string;
+  detail: string | null;
+  userId: string;
+  targetSelesai: Date | null;
+  tanggalMulai: Date | null;
+  tanggalSelesai: Date | null;
+  tanggalRevisi: Date | null;
+  revisiDone: Date | null;
+  closing: boolean;
+  isDone: boolean;
+  canceledAt: Date | null;
+  createdAt: Date;
+  user: {
+    name: string;
+  };
+}): ManagerProgressMutationRow {
+  return {
+    id: row.id,
+    pekerjaan: row.pekerjaan,
+    detail: row.detail,
+    userId: row.userId,
+    name: row.user.name,
+    targetSelesai: row.targetSelesai?.toISOString() ?? null,
+    tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
+    tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
+    tanggalRevisi: row.tanggalRevisi?.toISOString() ?? null,
+    revisiDone: row.revisiDone?.toISOString() ?? null,
+    closing: row.closing,
+    isDone: row.isDone,
+    canceledAt: row.canceledAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function redirectWithFeedback(type: FeedbackType, message: string): never {
@@ -471,6 +547,151 @@ export async function updateManagerProgressAction(formData: FormData) {
   redirectWithFeedback("success", "Progres berhasil diperbarui.");
 }
 
+export async function updateManagerProgressInlineAction(
+  formData: FormData,
+): Promise<UpdateManagerProgressInlineResult> {
+  const user = await requireAuthenticatedUser();
+
+  if (!canManageProgress(user.role)) {
+    return {
+      ok: false,
+      message: "Anda tidak memiliki izin untuk mengubah progres ini.",
+    };
+  }
+
+  const progressId = String(formData.get("progressId") ?? "").trim();
+  const pekerjaan = String(formData.get("pekerjaan") ?? "").trim();
+  const detailRaw = String(formData.get("detail") ?? "").trim();
+  const userId = String(formData.get("userId") ?? "").trim();
+
+  if (!progressId || !pekerjaan || !userId) {
+    return {
+      ok: false,
+      message: "Data progres wajib diisi lengkap.",
+    };
+  }
+
+  if (!isKnownJobName(pekerjaan)) {
+    return {
+      ok: false,
+      message: "Pilih pekerjaan dari daftar yang tersedia.",
+    };
+  }
+
+  if (detailRaw.length > 1000) {
+    return {
+      ok: false,
+      message: "Detail pekerjaan maksimal 1000 karakter.",
+    };
+  }
+
+  const progress = await prisma.dailyProgress.findUnique({
+    where: {
+      id: progressId,
+    },
+  });
+
+  if (!progress) {
+    return {
+      ok: false,
+      message: "Baris progres tidak ditemukan.",
+    };
+  }
+
+  if (progress.canceledAt) {
+    return {
+      ok: false,
+      message: "Pekerjaan yang sudah dibatalkan tidak bisa diubah.",
+    };
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
+
+  if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
+    return {
+      ok: false,
+      message: "Karyawan tujuan tidak ditemukan.",
+    };
+  }
+
+  const submittedTargetSelesai = parseDateInput(formData.get("targetSelesai"));
+  const targetSelesai = progress.targetSelesai ?? submittedTargetSelesai;
+  const tanggalMulai = parseDateInput(formData.get("tanggalMulai"));
+  const submittedTanggalSelesai = parseDateInput(formData.get("tanggalSelesai"));
+  const tanggalRevisi = parseDateInput(formData.get("tanggalRevisi"));
+  const revisiDone = parseDateInput(formData.get("revisiDone"));
+  const isDone = formData.get("isDone") === "on";
+  const closing = formData.get("closing") === "on";
+  const tanggalSelesai = closing
+    ? submittedTanggalSelesai ?? startOfDay(new Date())
+    : submittedTanggalSelesai;
+  const resolvedIsDone = closing || isDone || Boolean(tanggalSelesai || revisiDone);
+
+  const updated = await prisma.dailyProgress.update({
+    where: {
+      id: progress.id,
+    },
+    data: {
+      pekerjaan,
+      detail: detailRaw || null,
+      userId,
+      targetSelesai,
+      tanggalMulai,
+      tanggalSelesai,
+      tanggalRevisi,
+      revisiDone,
+      isDone: resolvedIsDone,
+      closing,
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  const affectedDates = [
+    progress.createdAt,
+    progress.targetSelesai,
+    progress.tanggalMulai,
+    progress.tanggalSelesai,
+    progress.tanggalRevisi,
+    progress.revisiDone,
+    updated.createdAt,
+    updated.targetSelesai,
+    updated.tanggalMulai,
+    updated.tanggalSelesai,
+    updated.tanggalRevisi,
+    updated.revisiDone,
+  ];
+
+  if (progress.userId !== updated.userId) {
+    await syncUserKpisForDates(progress.userId, affectedDates);
+  }
+
+  await syncUserKpisForDates(updated.userId, affectedDates);
+  refreshDashboard();
+
+  return {
+    ok: true,
+    row: serializeManagerProgressRow(updated),
+    movedToCompleted: updated.closing,
+    message: updated.closing
+      ? "Pekerjaan langsung dipindahkan ke completed recap."
+      : "Perubahan progres berhasil disimpan.",
+  };
+}
+
 export async function closeProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
 
@@ -515,6 +736,83 @@ export async function closeProgressAction(formData: FormData) {
   ]);
   refreshDashboard();
   redirectWithFeedback("success", "Progres berhasil dipindahkan ke daftar completed.");
+}
+
+export async function closeProgressInlineAction(
+  progressId: string,
+): Promise<CloseProgressInlineResult> {
+  const user = await requireAuthenticatedUser();
+
+  if (!canManageProgress(user.role)) {
+    return {
+      ok: false,
+      message: "Anda tidak memiliki izin untuk menutup progres.",
+    };
+  }
+
+  const normalizedProgressId = progressId.trim();
+
+  if (!normalizedProgressId) {
+    return {
+      ok: false,
+      message: "ID progres wajib diisi.",
+    };
+  }
+
+  const progress = await prisma.dailyProgress.findUnique({
+    where: {
+      id: normalizedProgressId,
+    },
+  });
+
+  if (!progress) {
+    return {
+      ok: false,
+      message: "Baris progres tidak ditemukan.",
+    };
+  }
+
+  if (progress.canceledAt) {
+    return {
+      ok: false,
+      message: "Pekerjaan yang sudah dibatalkan tidak bisa di-closing.",
+    };
+  }
+
+  const updated = await prisma.dailyProgress.update({
+    where: {
+      id: progress.id,
+    },
+    data: {
+      closing: true,
+      isDone: true,
+      tanggalSelesai: progress.tanggalSelesai ?? startOfDay(new Date()),
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  await syncUserKpisForDates(updated.userId, [
+    progress.createdAt,
+    progress.targetSelesai,
+    progress.tanggalMulai,
+    progress.tanggalSelesai,
+    progress.tanggalRevisi,
+    progress.revisiDone,
+    updated.tanggalSelesai,
+  ]);
+  refreshDashboard();
+
+  return {
+    ok: true,
+    row: serializeManagerProgressRow(updated),
+    message: "Pekerjaan berhasil dipindahkan ke daftar completed.",
+  };
 }
 
 export async function cancelProgressAction(formData: FormData) {

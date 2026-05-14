@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { prisma } from "@/lib/prisma";
@@ -84,6 +85,18 @@ export const getAuthState = cache(async () => {
 export async function getCurrentUserProfile() {
   const authState = await getAuthState();
   return authState.profile as AuthenticatedUser | null;
+}
+
+export async function hasSupabaseSessionCookie() {
+  if (!isSupabaseConfigured()) {
+    return false;
+  }
+
+  const cookieStore = await cookies();
+
+  return cookieStore
+    .getAll()
+    .some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
 }
 
 export async function requireAuthenticatedUser() {

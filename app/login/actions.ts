@@ -1,12 +1,16 @@
 "use server";
 
-import { redirect } from "next/navigation";
-
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LoginActionState = {
   error: string | null;
+  redirectTo?: string | null;
+};
+
+export type SignOutActionState = {
+  error: string | null;
+  redirectTo?: string | null;
 };
 
 export async function loginAction(
@@ -16,6 +20,7 @@ export async function loginAction(
   if (!isSupabaseConfigured()) {
     return {
       error: "Konfigurasi Supabase belum lengkap. Isi environment terlebih dahulu.",
+      redirectTo: null,
     };
   }
 
@@ -27,6 +32,7 @@ export async function loginAction(
   if (!email || !password) {
     return {
       error: "Email dan password wajib diisi.",
+      redirectTo: null,
     };
   }
 
@@ -35,6 +41,7 @@ export async function loginAction(
   if (!supabase) {
     return {
       error: "Klien auth belum siap. Cek kembali environment Supabase Anda.",
+      redirectTo: null,
     };
   }
 
@@ -46,18 +53,25 @@ export async function loginAction(
   if (error) {
     return {
       error: "Login gagal. Pastikan email dan password sudah benar.",
+      redirectTo: null,
     };
   }
 
-  redirect("/dashboard");
+  return {
+    error: null,
+    redirectTo: "/dashboard",
+  };
 }
 
-export async function signOutAction() {
+export async function signOutAction(): Promise<SignOutActionState> {
   const supabase = await createSupabaseServerClient();
 
   if (supabase) {
     await supabase.auth.signOut();
   }
 
-  redirect("/login");
+  return {
+    error: null,
+    redirectTo: "/login",
+  };
 }
