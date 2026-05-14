@@ -67,6 +67,7 @@ export function CompletedProgressRecapClient({
 }: CompletedProgressRecapClientProps) {
   const router = useRouter();
   const [localRows, setLocalRows] = useState(rows);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isBulkPending, setIsBulkPending] = useState(false);
@@ -84,6 +85,15 @@ export function CompletedProgressRecapClient({
         return;
       }
 
+      setHiddenIds((currentIds) => {
+        if (!currentIds.has(detail.id)) {
+          return currentIds;
+        }
+
+        const nextIds = new Set(currentIds);
+        nextIds.delete(detail.id);
+        return nextIds;
+      });
       setLocalRows((currentRows) => [
         detail,
         ...currentRows.filter((row) => row.id !== detail.id),
@@ -97,19 +107,29 @@ export function CompletedProgressRecapClient({
     };
   }, []);
 
-  const hasRows = localRows.length > 0;
-  const sortedRows = useMemo(() => localRows, [localRows]);
+  const sortedRows = useMemo(
+    () => localRows.filter((row) => !hiddenIds.has(row.id)),
+    [hiddenIds, localRows],
+  );
+  const hasRows = sortedRows.length > 0;
 
   async function handleHide(progressId: string) {
     setPendingId(progressId);
     setFeedback(null);
-    const previousRows = localRows;
-    setLocalRows((currentRows) => currentRows.filter((row) => row.id !== progressId));
+    setHiddenIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(progressId);
+      return nextIds;
+    });
 
     const result = await hideCompletedProgressFromDashboardAction(progressId);
 
     if (!result.ok) {
-      setLocalRows(previousRows);
+      setHiddenIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(progressId);
+        return nextIds;
+      });
       setPendingId(null);
       setFeedback(result.message);
       return;
@@ -126,13 +146,19 @@ export function CompletedProgressRecapClient({
   async function handleHideAll() {
     setIsBulkPending(true);
     setFeedback(null);
-    const previousRows = localRows;
-    setLocalRows([]);
+    const previousHiddenIds = new Set(hiddenIds);
+    setHiddenIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      for (const row of localRows) {
+        nextIds.add(row.id);
+      }
+      return nextIds;
+    });
 
     const result = await hideAllCompletedProgressFromDashboardAction();
 
     if (!result.ok) {
-      setLocalRows(previousRows);
+      setHiddenIds(previousHiddenIds);
       setIsBulkPending(false);
       setFeedback(result.message);
       return;
