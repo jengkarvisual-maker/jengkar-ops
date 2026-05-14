@@ -56,13 +56,19 @@ export function DashboardShell({
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
+                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
                   href="/"
                 >
                   Landing app
                 </Link>
+                <Link
+                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
+                  href="/settings"
+                >
+                  Pengaturan
+                </Link>
                 <a
-                  className="inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
+                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
                   href="https://rumahjengkar.com"
                   rel="noreferrer"
                   target="_blank"
@@ -71,7 +77,7 @@ export function DashboardShell({
                 </a>
                 <form action={signOutAction}>
                   <button
-                    className="inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90"
+                    className="button-press inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90"
                     type="submit"
                   >
                     Keluar

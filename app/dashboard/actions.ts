@@ -1,14 +1,16 @@
 "use server";
 
-import { AttendanceStatus, UserRole } from "@prisma/client";
+import { AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@/lib/auth";
+import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
 import {
   calculateBonusPool,
+  getAppDateParts,
   getWorkdaySchedule,
   parseDateInput,
   resolveAttendanceStatus,
@@ -34,6 +36,50 @@ function parseRequiredString(value: FormDataEntryValue | null, fieldLabel: strin
   }
 
   return normalized;
+}
+
+function parseJobName(value: FormDataEntryValue | null) {
+  const pekerjaan = parseRequiredString(value, "Pekerjaan");
+
+  if (!isKnownJobName(pekerjaan)) {
+    redirectWithFeedback("error", "Pilih pekerjaan dari daftar yang tersedia.");
+  }
+
+  return pekerjaan;
+}
+
+function parseOptionalText(value: FormDataEntryValue | null, fieldLabel: string) {
+  const normalized = String(value ?? "").trim();
+
+  if (normalized.length > 1000) {
+    redirectWithFeedback("error", `${fieldLabel} maksimal 1000 karakter.`);
+  }
+
+  return normalized || null;
+}
+
+function parseBoundedRequiredString(
+  value: FormDataEntryValue | null,
+  fieldLabel: string,
+  maxLength: number,
+) {
+  const normalized = parseRequiredString(value, fieldLabel);
+
+  if (normalized.length > maxLength) {
+    redirectWithFeedback("error", `${fieldLabel} maksimal ${maxLength} karakter.`);
+  }
+
+  return normalized;
+}
+
+function parseStopCardStatus(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+
+  if (!Object.values(StopCardStatus).includes(normalized as StopCardStatus)) {
+    redirectWithFeedback("error", "Status STOP CARD belum valid.");
+  }
+
+  return normalized as StopCardStatus;
 }
 
 function parsePositiveNumber(value: FormDataEntryValue | null, fieldLabel: string) {
@@ -211,6 +257,68 @@ export async function markOffAction() {
   redirectWithFeedback("success", "Status OFF berhasil dicatat.");
 }
 
+export async function submitStopCardAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.KARYAWAN) {
+    redirectWithFeedback("error", "STOP CARD hanya tersedia untuk akun karyawan.");
+  }
+
+  const title = parseBoundedRequiredString(formData.get("title"), "Judul STOP CARD", 120);
+  const content = parseBoundedRequiredString(formData.get("content"), "Isi STOP CARD", 3000);
+
+  await prisma.stopCard.create({
+    data: {
+      userId: user.id,
+      title,
+      content,
+      status: StopCardStatus.BARU,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  redirectWithFeedback(
+    "success",
+    "STOP CARD berhasil dikirim. Owner akan melihat isi laporan ini tanpa identitas pengirim.",
+  );
+}
+
+export async function updateStopCardStatusAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.OWNER) {
+    redirectWithFeedback("error", "Hanya Owner yang bisa memperbarui status STOP CARD.");
+  }
+
+  const stopCardId = parseRequiredString(formData.get("stopCardId"), "ID STOP CARD");
+  const status = parseStopCardStatus(formData.get("status"));
+
+  const existing = await prisma.stopCard.findUnique({
+    where: {
+      id: stopCardId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existing) {
+    redirectWithFeedback("error", "STOP CARD tidak ditemukan.");
+  }
+
+  await prisma.stopCard.update({
+    where: {
+      id: stopCardId,
+    },
+    data: {
+      status,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  redirectWithFeedback("success", "Status STOP CARD berhasil diperbarui.");
+}
+
 export async function createProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
 
@@ -218,7 +326,8 @@ export async function createProgressAction(formData: FormData) {
     redirectWithFeedback("error", "Hanya Owner atau Admin yang bisa membuat progres baru.");
   }
 
-  const pekerjaan = parseRequiredString(formData.get("pekerjaan"), "Pekerjaan");
+  const pekerjaan = parseJobName(formData.get("pekerjaan"));
+  const detail = parseOptionalText(formData.get("detail"), "Detail pekerjaan");
   const userId = parseRequiredString(formData.get("userId"), "Nama karyawan");
   const targetSelesai = parseDateInput(formData.get("targetSelesai"));
   const tanggalMulai = parseDateInput(formData.get("tanggalMulai"));
@@ -232,6 +341,7 @@ export async function createProgressAction(formData: FormData) {
   const progress = await prisma.dailyProgress.create({
     data: {
       pekerjaan,
+      detail,
       userId,
       targetSelesai,
       tanggalMulai,
@@ -257,7 +367,8 @@ export async function updateManagerProgressAction(formData: FormData) {
   }
 
   const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
-  const pekerjaan = parseRequiredString(formData.get("pekerjaan"), "Pekerjaan");
+  const pekerjaan = parseJobName(formData.get("pekerjaan"));
+  const detail = parseOptionalText(formData.get("detail"), "Detail pekerjaan");
   const userId = parseRequiredString(formData.get("userId"), "Nama karyawan");
 
   const progress = await prisma.dailyProgress.findUnique({
@@ -270,15 +381,23 @@ export async function updateManagerProgressAction(formData: FormData) {
     redirectWithFeedback("error", "Baris progres tidak ditemukan.");
   }
 
+  if (progress.canceledAt) {
+    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa diubah.");
+  }
+
   await ensureAssignableUser(userId);
 
-  const targetSelesai = parseDateInput(formData.get("targetSelesai"));
+  const submittedTargetSelesai = parseDateInput(formData.get("targetSelesai"));
+  const targetSelesai = progress.targetSelesai ?? submittedTargetSelesai;
   const tanggalMulai = parseDateInput(formData.get("tanggalMulai"));
-  const tanggalSelesai = parseDateInput(formData.get("tanggalSelesai"));
+  const submittedTanggalSelesai = parseDateInput(formData.get("tanggalSelesai"));
   const tanggalRevisi = parseDateInput(formData.get("tanggalRevisi"));
   const revisiDone = parseDateInput(formData.get("revisiDone"));
   const isDone = formData.get("isDone") === "on";
   const closing = formData.get("closing") === "on";
+  const tanggalSelesai = closing
+    ? submittedTanggalSelesai ?? startOfDay(new Date())
+    : submittedTanggalSelesai;
 
   const resolvedIsDone = closing || isDone || Boolean(tanggalSelesai || revisiDone);
 
@@ -288,6 +407,7 @@ export async function updateManagerProgressAction(formData: FormData) {
     },
     data: {
       pekerjaan,
+      detail,
       userId,
       targetSelesai,
       tanggalMulai,
@@ -341,6 +461,10 @@ export async function closeProgressAction(formData: FormData) {
     redirectWithFeedback("error", "Baris progres tidak ditemukan.");
   }
 
+  if (progress.canceledAt) {
+    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa di-closing.");
+  }
+
   const updated = await prisma.dailyProgress.update({
     where: {
       id: progress.id,
@@ -348,7 +472,7 @@ export async function closeProgressAction(formData: FormData) {
     data: {
       closing: true,
       isDone: true,
-      tanggalSelesai: progress.tanggalSelesai ?? new Date(),
+      tanggalSelesai: progress.tanggalSelesai ?? startOfDay(new Date()),
     },
   });
 
@@ -365,6 +489,131 @@ export async function closeProgressAction(formData: FormData) {
   redirectWithFeedback("success", "Progres berhasil dipindahkan ke daftar completed.");
 }
 
+export async function cancelProgressAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+
+  if (!canManageProgress(user.role)) {
+    redirectWithFeedback("error", "Anda tidak memiliki izin untuk membatalkan progres.");
+  }
+
+  const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
+  const progress = await prisma.dailyProgress.findUnique({
+    where: {
+      id: progressId,
+    },
+  });
+
+  if (!progress) {
+    redirectWithFeedback("error", "Baris progres tidak ditemukan.");
+  }
+
+  if (progress.closing) {
+    redirectWithFeedback("error", "Pekerjaan yang sudah closing tidak bisa dibatalkan.");
+  }
+
+  if (progress.canceledAt) {
+    redirectWithFeedback("error", "Pekerjaan ini sudah dibatalkan.");
+  }
+
+  const updated = await prisma.dailyProgress.update({
+    where: {
+      id: progress.id,
+    },
+    data: {
+      canceledAt: new Date(),
+      closing: false,
+      isDone: false,
+    },
+  });
+
+  await syncUserKpisForDates(updated.userId, [
+    progress.createdAt,
+    progress.targetSelesai,
+    progress.tanggalMulai,
+    progress.tanggalSelesai,
+    progress.tanggalRevisi,
+    progress.revisiDone,
+    updated.canceledAt,
+  ]);
+  revalidatePath("/dashboard");
+  redirectWithFeedback(
+    "success",
+    "Pekerjaan berhasil dibatalkan dan tidak ikut masuk penilaian KPI.",
+  );
+}
+
+export async function deleteCompletedProgressAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.OWNER) {
+    redirectWithFeedback("error", "Hanya Owner yang bisa menghapus pekerjaan yang sudah closing.");
+  }
+
+  const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
+  const progress = await prisma.dailyProgress.findUnique({
+    where: {
+      id: progressId,
+    },
+  });
+
+  if (!progress) {
+    redirectWithFeedback("error", "Baris progres tidak ditemukan.");
+  }
+
+  if (!progress.closing) {
+    redirectWithFeedback("error", "Hanya pekerjaan yang sudah closing yang bisa dihapus dari recap.");
+  }
+
+  if (progress.hiddenFromDashboard) {
+    redirectWithFeedback("error", "Pekerjaan ini sudah disembunyikan dari dashboard.");
+  }
+
+  await prisma.dailyProgress.update({
+    where: {
+      id: progress.id,
+    },
+    data: {
+      hiddenFromDashboard: true,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  redirectWithFeedback(
+    "success",
+    "Pekerjaan berhasil disembunyikan dari dashboard tanpa menghapus nilai KPI yang sudah terbentuk.",
+  );
+}
+
+export async function deleteAllCompletedProgressAction() {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.OWNER) {
+    redirectWithFeedback(
+      "error",
+      "Hanya Owner yang bisa menyembunyikan seluruh completed work recap.",
+    );
+  }
+
+  const result = await prisma.dailyProgress.updateMany({
+    where: {
+      closing: true,
+      hiddenFromDashboard: false,
+      canceledAt: null,
+    },
+    data: {
+      hiddenFromDashboard: true,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  redirectWithFeedback(
+    "success",
+    result.count > 0
+      ? `${result.count} item completed work recap berhasil disembunyikan dari dashboard tanpa mengubah nilai KPI.`
+      : "Tidak ada completed work recap aktif yang perlu disembunyikan.",
+  );
+}
+
 export async function updateEmployeeProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
   const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
@@ -377,6 +626,10 @@ export async function updateEmployeeProgressAction(formData: FormData) {
 
   if (!progress || progress.userId !== user.id) {
     redirectWithFeedback("error", "Anda hanya bisa memperbarui progres milik Anda sendiri.");
+  }
+
+  if (progress.canceledAt) {
+    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa diubah.");
   }
 
   const tanggalSelesai = parseDateInput(formData.get("tanggalSelesai"));
@@ -444,8 +697,8 @@ export async function syncCurrentMonthKpiAction() {
     redirectWithFeedback("error", "Anda tidak memiliki izin untuk menyinkronkan KPI.");
   }
 
-  const now = new Date();
-  await syncAllKpisForMonth(now.getFullYear(), now.getMonth() + 1);
+  const { year, month } = getAppDateParts(new Date());
+  await syncAllKpisForMonth(year, month);
   revalidatePath("/dashboard");
   redirectWithFeedback("success", "Sinkron KPI bulan berjalan selesai dijalankan.");
 }

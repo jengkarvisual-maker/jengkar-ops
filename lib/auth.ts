@@ -106,3 +106,19 @@ export function canManageProgress(role: UserRole) {
 export function canManageFinance(role: UserRole) {
   return role === UserRole.OWNER;
 }
+
+export function canResetManagedPasswords(role: UserRole) {
+  return role === UserRole.OWNER || role === UserRole.ADMIN;
+}
+
+export function canResetTargetUserPassword(actorRole: UserRole, targetRole: UserRole) {
+  if (actorRole === UserRole.OWNER) {
+    return targetRole === UserRole.ADMIN || targetRole === UserRole.KARYAWAN;
+  }
+
+  if (actorRole === UserRole.ADMIN) {
+    return targetRole === UserRole.KARYAWAN;
+  }
+
+  return false;
+}

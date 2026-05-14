@@ -1,4 +1,4 @@
-import type { AttendanceStatus, UserRole } from "@prisma/client";
+import type { AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
 
 export type AttendanceItem = {
   id: string;
@@ -14,6 +14,7 @@ export type AttendanceItem = {
 export type ProgressItem = {
   id: string;
   pekerjaan: string;
+  detail: string | null;
   userId: string;
   name: string;
   targetSelesai: Date | null;
@@ -23,6 +24,7 @@ export type ProgressItem = {
   revisiDone: Date | null;
   closing: boolean;
   isDone: boolean;
+  canceledAt: Date | null;
   createdAt: Date;
 };
 
@@ -52,6 +54,31 @@ export type BonusPreviewItem = {
   bonus: number;
 };
 
+export type LockedKpiMonthItem = {
+  key: string;
+  label: string;
+  lockedAt: Date;
+  lockedByName: string;
+};
+
+export type OwnerStopCardItem = {
+  id: string;
+  title: string;
+  content: string;
+  status: StopCardStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type EmployeeStopCardItem = {
+  id: string;
+  title: string;
+  content: string;
+  status: StopCardStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type DashboardUser = {
   id: string;
   name: string;
@@ -59,9 +86,36 @@ export type DashboardUser = {
   role: UserRole;
 };
 
+export type DashboardMonthOption = {
+  key: string;
+  label: string;
+  year: number;
+  month: number;
+};
+
+export type LockedKpiSelection = {
+  key: string;
+  label: string;
+  lockedAt: Date;
+  lockedByName: string;
+};
+
+export type BonusSimulationItem = {
+  userId: string;
+  name: string;
+  averageScore: number;
+  monthsCount: number;
+  bonus: number;
+};
+
 export type OwnerDashboardData = {
   teamSize: number;
   teamUsers: DashboardUser[];
+  monthlyKpiPeriodLabel: string;
+  monthlyKpiIsFinal: boolean;
+  lockedKpiMonthOptions: DashboardMonthOption[];
+  selectedLockedKpiMonth: LockedKpiSelection | null;
+  selectedLockedMonthlyKpis: MonthlyKpiItem[];
   attendanceToday: AttendanceItem[];
   attendanceSummary: {
     onTime: number;
@@ -74,7 +128,16 @@ export type OwnerDashboardData = {
   openProgressCount: number;
   monthlyKpis: MonthlyKpiItem[];
   yearlyKpis: YearlyKpiItem[];
+  lockedKpiMonths: LockedKpiMonthItem[];
+  stopCards: OwnerStopCardItem[];
   bonusPreview: BonusPreviewItem[];
+  simulationMonthOptions: DashboardMonthOption[];
+  simulationStartMonthKey: string;
+  simulationEndMonthKey: string;
+  simulationAmount: number;
+  simulationIsFullyLocked: boolean;
+  simulationPeriodLabel: string;
+  simulationRows: BonusSimulationItem[];
   activeFinanceYear: number;
   finance:
     | {
@@ -105,6 +168,7 @@ export type EmployeeDashboardData = {
   progressRows: ProgressItem[];
   monthlyKpi: MonthlyKpiItem | null;
   yearlyKpi: YearlyKpiItem | null;
+  stopCards: EmployeeStopCardItem[];
   narrative: string;
   scheduleLabel: string;
 };

@@ -41,7 +41,7 @@ async function seedUsers() {
     if (!authUserId && supabaseAdmin) {
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: user.email,
-        password: SEED_DEFAULT_PASSWORD,
+        password: user.password ?? SEED_DEFAULT_PASSWORD,
         email_confirm: true,
         user_metadata: {
           name: user.name,

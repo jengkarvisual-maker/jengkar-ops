@@ -4,6 +4,18 @@ export const APP_NAME = "JENGKAR KPI";
 export const APP_DOMAIN = "https://ops.rumahjengkar.com";
 export const SEED_DEFAULT_PASSWORD =
   process.env.SEED_DEFAULT_PASSWORD ?? "12345678";
+export const EXCLUDED_OPERATIONAL_EMAILS = [
+  "owner@rumahjengkar.com",
+  "admin@rumahjengkar.com",
+  "finance@rumahjengkar.com",
+] as const;
+
+type InitialUserSeed = {
+  name: string;
+  email: string;
+  role: UserRole;
+  password?: string;
+};
 
 export const INITIAL_USERS = [
   {
@@ -61,7 +73,13 @@ export const INITIAL_USERS = [
     email: "sindy@rumahjengkar.com",
     role: UserRole.KARYAWAN,
   },
-] as const;
+  {
+    name: "Arif Rahman",
+    email: "arif@rumahjengkar.com",
+    role: UserRole.KARYAWAN,
+    password: "arif5585",
+  },
+] satisfies readonly InitialUserSeed[];
 
 export const ROLE_COPY = {
   OWNER: {
@@ -82,7 +100,7 @@ export const CORE_MODULES = [
   {
     title: "Absensi Harian",
     description:
-      "Check-in, check-out, dan status OFF dengan aturan jam kerja Senin sampai Sabtu.",
+      "Check-in, check-out, dan status OFF dengan aturan jam kerja Senin sampai Minggu.",
   },
   {
     title: "Progres Harian",
@@ -92,7 +110,7 @@ export const CORE_MODULES = [
   {
     title: "KPI Bulanan & Tahunan",
     description:
-      "Perhitungan 70 persen kinerja dan 30 persen disiplin, lalu dirangkum per tahun.",
+      "Perhitungan 90 persen kinerja berbobot pekerjaan dan 10 persen disiplin, lalu dirangkum per tahun.",
   },
   {
     title: "Bonus Tahunan",

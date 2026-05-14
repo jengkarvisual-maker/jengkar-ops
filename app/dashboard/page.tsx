@@ -34,13 +34,27 @@ function readFeedback(searchParams?: Record<string, string | string[] | undefine
   } as const;
 }
 
+function readSingleParam(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+  key: string,
+) {
+  const value = searchParams?.[key];
+
+  return typeof value === "string" ? value : undefined;
+}
+
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await requireAuthenticatedUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const feedback = readFeedback(resolvedSearchParams);
 
   if (user.role === UserRole.OWNER) {
-    const data = await getOwnerDashboardData();
+    const data = await getOwnerDashboardData({
+      lockedMonthKey: readSingleParam(resolvedSearchParams, "lockedMonth"),
+      simulationAmount: readSingleParam(resolvedSearchParams, "simAmount"),
+      simulationEndMonthKey: readSingleParam(resolvedSearchParams, "simEnd"),
+      simulationStartMonthKey: readSingleParam(resolvedSearchParams, "simStart"),
+    });
 
     return (
       <DashboardShell

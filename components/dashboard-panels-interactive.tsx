@@ -1,17 +1,21 @@
 ﻿import type { ReactNode } from "react";
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, StopCardStatus } from "@prisma/client";
 
 import {
   checkInAction,
   checkOutAction,
-  closeProgressAction,
   createProgressAction,
+  deleteAllCompletedProgressAction,
+  deleteCompletedProgressAction,
   markOffAction,
   saveFinanceAction,
+  submitStopCardAction,
   syncCurrentMonthKpiAction,
+  updateStopCardStatusAction,
   updateEmployeeProgressAction,
-  updateManagerProgressAction,
 } from "@/app/dashboard/actions";
+import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
+import { JOB_OPTIONS } from "@/lib/job-catalog";
 import {
   formatCurrency,
   formatDate,
@@ -47,6 +51,20 @@ function attendanceLabel(status: AttendanceStatus) {
   return "Off";
 }
 
+function stopCardStatusTone(status: StopCardStatus) {
+  if (status === StopCardStatus.DIBACA) return "pending" as const;
+  if (status === StopCardStatus.DITINDAKLANJUTI) return "warning" as const;
+  if (status === StopCardStatus.SELESAI) return "success" as const;
+  return "default" as const;
+}
+
+function stopCardStatusLabel(status: StopCardStatus) {
+  if (status === StopCardStatus.DIBACA) return "Dibaca";
+  if (status === StopCardStatus.DITINDAKLANJUTI) return "Ditindaklanjuti";
+  if (status === StopCardStatus.SELESAI) return "Selesai";
+  return "Baru";
+}
+
 function CardSection({ children, title, description }: { children: ReactNode; title: string; description?: string }) {
   return (
     <section className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
@@ -56,6 +74,26 @@ function CardSection({ children, title, description }: { children: ReactNode; ti
       </div>
       <div className="pt-5">{children}</div>
     </section>
+  );
+}
+
+function TitleStatusChip({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "success" | "pending";
+}) {
+  return (
+    <span
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
+        tone === "success"
+          ? "border-success/15 bg-success/10 text-success"
+          : "border-pending/15 bg-pending/10 text-pending"
+      }`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -76,6 +114,19 @@ function EmptyState({ title, description }: { title: string; description: string
       <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-muted">{description}</p>
     </div>
   );
+}
+
+function serializeProgressRows(rows: ProgressItem[]): ManagerProgressItem[] {
+  return rows.map((row) => ({
+    ...row,
+    targetSelesai: row.targetSelesai?.toISOString() ?? null,
+    tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
+    tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
+    tanggalRevisi: row.tanggalRevisi?.toISOString() ?? null,
+    revisiDone: row.revisiDone?.toISOString() ?? null,
+    canceledAt: row.canceledAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 function StatusChip({ label, tone }: { label: string; tone: "default" | "success" | "warning" | "pending" }) {
@@ -99,6 +150,15 @@ function InputField({ defaultValue, label, name, placeholder, required, type = "
   );
 }
 
+function TextareaField({ defaultValue, label, maxLength = 1000, name, placeholder }: { defaultValue?: string; label: string; maxLength?: number; name: string; placeholder?: string }) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <textarea className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-6 text-foreground placeholder:text-muted/70" defaultValue={defaultValue} maxLength={maxLength} name={name} placeholder={placeholder} />
+    </label>
+  );
+}
+
 function SelectField({ defaultValue, label, name, options }: { defaultValue?: string; label: string; name: string; options: DashboardUser[] }) {
   return (
     <label className="space-y-2">
@@ -113,9 +173,53 @@ function SelectField({ defaultValue, label, name, options }: { defaultValue?: st
   );
 }
 
+function MonthSelectField({
+  defaultValue,
+  label,
+  name,
+  options,
+}: {
+  defaultValue?: string;
+  label: string;
+  name: string;
+  options: OwnerDashboardData["simulationMonthOptions"] | OwnerDashboardData["lockedKpiMonthOptions"];
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <select
+        className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+        defaultValue={defaultValue}
+        name={name}
+        required
+      >
+        {options.map((option) => (
+          <option key={option.key} value={option.key}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function JobSelectField({ defaultValue, label = "Pekerjaan" }: { defaultValue?: string; label?: string }) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <select className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name="pekerjaan" required>
+        <option value="">Pilih pekerjaan</option>
+        {JOB_OPTIONS.map((option) => (
+          <option key={option.name} value={option.name}>{option.name}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function ActionButton({ children, disabled, tone = "dark" }: { children: ReactNode; disabled?: boolean; tone?: "dark" | "light" | "danger" | "success" }) {
   const className = tone === "light" ? "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent" : tone === "danger" ? "bg-warning text-white hover:opacity-90" : tone === "success" ? "bg-success text-white hover:opacity-90" : "bg-foreground text-background hover:bg-foreground/90";
-  return <button className={`inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} type="submit">{children}</button>;
+  return <button className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} type="submit">{children}</button>;
 }
 
 function AttendanceTable({ rows, emptyDescription }: { rows: OwnerDashboardData["attendanceToday"] | EmployeeDashboardData["recentAttendance"]; emptyDescription: string }) {
@@ -162,6 +266,26 @@ function MonthlyKpiTable({ rows, emptyDescription }: { rows: OwnerDashboardData[
   );
 }
 
+function OwnerMonthlyKpiStatus({
+  periodLabel,
+  isFinal,
+}: {
+  periodLabel: string;
+  isFinal: boolean;
+}) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-4">
+      <p className="text-sm font-semibold text-foreground">Periode yang ditampilkan: {periodLabel}</p>
+      <TitleStatusChip label={isFinal ? "Final" : "Belum final"} tone={isFinal ? "success" : "pending"} />
+      <p className="text-sm text-muted">
+        {isFinal
+          ? "Nilai KPI periode ini sudah dikunci dan tidak akan berubah lagi."
+          : "Nilai KPI periode ini masih dinamis dan bisa berubah mengikuti update absensi atau progress."}
+      </p>
+    </div>
+  );
+}
+
 function AttendanceActions({ data }: { data: EmployeeDashboardData }) {
   const hasCheckedIn = Boolean(data.attendanceToday?.checkIn);
   const hasCheckedOut = Boolean(data.attendanceToday?.checkOut);
@@ -193,42 +317,15 @@ function AttendanceActions({ data }: { data: EmployeeDashboardData }) {
 function CreateProgressForm({ teamUsers }: { teamUsers: DashboardUser[] }) {
   return (
     <form action={createProgressAction} className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-4">
-      <InputField label="Pekerjaan" name="pekerjaan" placeholder="Contoh: Desain feed promo" required />
+      <JobSelectField />
       <SelectField label="Nama karyawan" name="userId" options={teamUsers} />
       <InputField label="Tanggal mulai" name="tanggalMulai" required type="date" />
       <InputField label="Target selesai" name="targetSelesai" required type="date" />
+      <div className="lg:col-span-4">
+        <TextareaField label="Detail pekerjaan" name="detail" placeholder="Tulis detail singkat, brief, atau catatan khusus pekerjaan ini." />
+      </div>
       <div className="lg:col-span-4"><ActionButton>Tambah progres</ActionButton></div>
     </form>
-  );
-}
-
-function ManagerProgressList({ rows, teamUsers }: { rows: ProgressItem[]; teamUsers: DashboardUser[] }) {
-  if (rows.length === 0) return <EmptyState description="Belum ada pekerjaan aktif. Tambahkan progres baru dari form di atas untuk mulai memantau tim." title="Belum ada pekerjaan berjalan" />;
-  return (
-    <div className="grid gap-4">
-      {rows.map((row) => (
-        <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-lg font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">PIC: {row.name} • Dibuat {formatDate(row.createdAt)}</p></div>
-            <div className="flex flex-wrap gap-2"><StatusChip label={row.isDone ? "Done" : "Ongoing"} tone={row.isDone ? "success" : "pending"} /><StatusChip label={row.closing ? "Closed" : "Aktif"} tone={row.closing ? "success" : "default"} /></div>
-          </div>
-          <form action={updateManagerProgressAction} className="mt-5 grid gap-4 xl:grid-cols-3">
-            <input name="progressId" type="hidden" value={row.id} />
-            <InputField defaultValue={row.pekerjaan} label="Pekerjaan" name="pekerjaan" required />
-            <SelectField defaultValue={row.userId} label="Karyawan" name="userId" options={teamUsers} />
-            <InputField defaultValue={formatDateInput(row.targetSelesai)} label="Target selesai" name="targetSelesai" type="date" />
-            <InputField defaultValue={formatDateInput(row.tanggalMulai)} label="Tanggal mulai" name="tanggalMulai" type="date" />
-            <InputField defaultValue={formatDateInput(row.tanggalSelesai)} label="Tanggal selesai" name="tanggalSelesai" type="date" />
-            <InputField defaultValue={formatDateInput(row.tanggalRevisi)} label="Tanggal revisi" name="tanggalRevisi" type="date" />
-            <InputField defaultValue={formatDateInput(row.revisiDone)} label="Revisi done" name="revisiDone" type="date" />
-            <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.isDone} name="isDone" type="checkbox" />Tandai done</label>
-            <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.closing} name="closing" type="checkbox" />Tandai closing</label>
-            <div className="flex flex-wrap gap-3 xl:col-span-3"><ActionButton>Simpan perubahan</ActionButton></div>
-          </form>
-          <form action={closeProgressAction} className="mt-3"><input name="progressId" type="hidden" value={row.id} /><ActionButton tone="success">Closing cepat</ActionButton></form>
-        </article>
-      ))}
-    </div>
   );
 }
 
@@ -239,7 +336,7 @@ function EmployeeProgressList({ rows }: { rows: ProgressItem[] }) {
       {rows.map((row) => (
         <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-lg font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">Target {formatDate(row.targetSelesai)} • Mulai {formatDate(row.tanggalMulai)}</p></div>
+            <div><p className="text-lg font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">Target {formatDate(row.targetSelesai)} • Mulai {formatDate(row.tanggalMulai)}</p>{row.detail ? <p className="mt-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-7 text-muted">{row.detail}</p> : null}</div>
             <StatusChip label={row.isDone ? "Done" : "Ongoing"} tone={row.isDone ? "success" : "pending"} />
           </div>
           <form action={updateEmployeeProgressAction} className="mt-5 grid gap-4 md:grid-cols-2">
@@ -254,16 +351,44 @@ function EmployeeProgressList({ rows }: { rows: ProgressItem[] }) {
   );
 }
 
-function CompletedProgressRecap({ rows, emptyDescription }: { rows: ProgressItem[]; emptyDescription: string }) {
+function CompletedProgressRecap({
+  rows,
+  emptyDescription,
+  allowDelete = false,
+}: {
+  rows: ProgressItem[];
+  emptyDescription: string;
+  allowDelete?: boolean;
+}) {
   if (rows.length === 0) return <EmptyState description={emptyDescription} title="Belum ada pekerjaan yang closing" />;
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {rows.map((row) => (
-        <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
-          <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">{row.name}</p></div><StatusChip label="Closed" tone="success" /></div>
-          <div className="mt-4 space-y-2 text-sm text-muted"><p>Mulai: {formatDate(row.tanggalMulai)}</p><p>Selesai: {formatDate(row.tanggalSelesai)}</p><p>Revisi done: {formatDate(row.revisiDone)}</p></div>
-        </article>
-      ))}
+    <div className="space-y-4">
+      {allowDelete ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-line bg-surface p-5">
+          <p className="text-sm leading-7 text-muted">
+            Anda bisa menyembunyikan semua recap sekaligus. Histori pekerjaan dan nilai KPI yang
+            sudah terbentuk tetap aman.
+          </p>
+          <form action={deleteAllCompletedProgressAction}>
+            <ActionButton tone="danger">Sembunyikan semua recap</ActionButton>
+          </form>
+        </div>
+      ) : null}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
+            <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">{row.name}</p></div><StatusChip label="Closed" tone="success" /></div>
+            {row.detail ? <p className="mt-4 rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-7 text-muted">{row.detail}</p> : null}
+            <div className="mt-4 space-y-2 text-sm text-muted"><p>Mulai: {formatDate(row.tanggalMulai)}</p><p>Selesai: {formatDate(row.tanggalSelesai)}</p><p>Revisi done: {formatDate(row.revisiDone)}</p></div>
+            {allowDelete ? (
+              <form action={deleteCompletedProgressAction} className="mt-4">
+                <input name="progressId" type="hidden" value={row.id} />
+                <ActionButton tone="danger">Hapus dari dashboard</ActionButton>
+              </form>
+            ) : null}
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
@@ -296,7 +421,7 @@ function YearlyBonusTable({ data }: { data: OwnerDashboardData }) {
         <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">Bonus pool {data.activeFinanceYear}</div>
         <p className="mt-4 text-3xl font-semibold text-foreground">{data.finance ? formatCurrency(data.finance.bonusPool) : "-"}</p>
         <p className="mt-2 text-sm leading-7 text-muted">Laba bersih tahun aktif {data.finance ? formatCurrency(data.finance.netProfit) : "-"}. Bonus pool selalu dihitung sebagai 10 persen dari net profit.</p>
-        <div className="mt-5 rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">KPI tahunan di bawah 70 tidak memperoleh bonus. KPI 95 ke atas mendapat penyesuaian bonus plus 10 persen.</div>
+        <div className="mt-5 rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">KPI tahunan di bawah 70 tidak memperoleh bonus. Karyawan yang lolos ambang dibagi proporsional berdasarkan nilai KPI masing-masing.</div>
       </article>
       {data.bonusPreview.length === 0 ? <EmptyState description="Simpan finance tahunan lalu sinkronkan KPI bila perlu. Setelah itu simulasi bonus individual akan muncul di sini." title="Belum ada simulasi bonus individual" /> : (
         <TableShell>
@@ -314,18 +439,311 @@ function YearlyBonusTable({ data }: { data: OwnerDashboardData }) {
   );
 }
 
+function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
+  if (data.lockedKpiMonthOptions.length === 0) {
+    return (
+      <EmptyState
+        title="Belum ada KPI final yang bisa dilihat"
+        description="Setelah owner mengunci KPI dari menu Pengaturan, nilai final tiap karyawan akan tampil di dashboard ini."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-[0.38fr_0.32fr_0.3fr]">
+        <MonthSelectField
+          defaultValue={data.selectedLockedKpiMonth?.key}
+          label="Periode KPI final"
+          name="lockedMonth"
+          options={data.lockedKpiMonthOptions}
+        />
+        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+          {data.selectedLockedKpiMonth ? (
+            <>
+              <p className="font-semibold text-foreground">{data.selectedLockedKpiMonth.label}</p>
+              <p className="mt-2">
+                Dikunci {formatDateTime(data.selectedLockedKpiMonth.lockedAt)} oleh{" "}
+                {data.selectedLockedKpiMonth.lockedByName}.
+              </p>
+            </>
+          ) : (
+            <p>Pilih periode KPI yang sudah dikunci untuk melihat nilai finalnya.</p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <ActionButton tone="light">Tampilkan KPI final</ActionButton>
+          {data.selectedLockedKpiMonth ? (
+            <a
+              className="button-press inline-flex h-11 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold text-foreground transition hover:border-accent/30 hover:text-accent"
+              href={`/api/kpi-locks/export?monthKey=${encodeURIComponent(data.selectedLockedKpiMonth.key)}`}
+            >
+              Download CSV final
+            </a>
+          ) : null}
+        </div>
+        <input name="simStart" type="hidden" value={data.simulationStartMonthKey} />
+        <input name="simEnd" type="hidden" value={data.simulationEndMonthKey} />
+        <input name="simAmount" type="hidden" value={String(data.simulationAmount)} />
+      </form>
+      <MonthlyKpiTable
+        rows={data.selectedLockedMonthlyKpis}
+        emptyDescription="Belum ada nilai KPI final yang tersimpan untuk periode terkunci ini."
+      />
+    </div>
+  );
+}
+
+function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
+  if (data.simulationMonthOptions.length === 0) {
+    return (
+      <EmptyState
+        title="Belum ada data KPI untuk simulasi uang"
+        description="Setelah KPI bulanan mulai tersimpan, owner bisa membuat simulasi distribusi uang per karyawan dari rentang bulan yang dipilih."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 xl:grid-cols-[0.22fr_0.22fr_0.22fr_0.34fr]">
+        <MonthSelectField
+          defaultValue={data.simulationStartMonthKey}
+          label="Bulan awal"
+          name="simStart"
+          options={data.simulationMonthOptions}
+        />
+        <MonthSelectField
+          defaultValue={data.simulationEndMonthKey}
+          label="Bulan akhir"
+          name="simEnd"
+          options={data.simulationMonthOptions}
+        />
+        <InputField
+          defaultValue={String(data.simulationAmount)}
+          label="Total dana simulasi"
+          name="simAmount"
+          type="number"
+        />
+        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="font-semibold text-foreground">{data.simulationPeriodLabel}</p>
+            <TitleStatusChip
+              label={data.simulationIsFullyLocked ? "Final" : "Dinamis"}
+              tone={data.simulationIsFullyLocked ? "success" : "pending"}
+            />
+          </div>
+          <p className="mt-2">
+            Simulasi memakai rata-rata KPI bulanan pada rentang terpilih. KPI di bawah 70 tidak
+            menerima pembagian.
+          </p>
+        </div>
+        <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
+        <div className="xl:col-span-4">
+          <ActionButton tone="light">Hitung simulasi uang</ActionButton>
+        </div>
+      </form>
+      {data.simulationRows.length === 0 ? (
+        <EmptyState
+          title="Belum ada hasil simulasi"
+          description="Pilih rentang bulan dan nominal dana simulasi untuk melihat pembagian uang per karyawan."
+        />
+      ) : (
+        <TableShell>
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-white/80 text-muted">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Nama</th>
+                <th className="px-4 py-3 font-semibold">Rata-rata KPI</th>
+                <th className="px-4 py-3 font-semibold">Bulan terpakai</th>
+                <th className="px-4 py-3 font-semibold">Simulasi uang</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.simulationRows.map((row) => (
+                <tr className="border-t border-line/70" key={row.userId}>
+                  <td className="px-4 py-3 font-medium text-foreground">{row.name}</td>
+                  <td className="px-4 py-3 text-muted">{formatScore(row.averageScore)}</td>
+                  <td className="px-4 py-3 text-muted">{row.monthsCount}</td>
+                  <td className="px-4 py-3 font-semibold text-foreground">{formatCurrency(row.bonus)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableShell>
+      )}
+    </div>
+  );
+}
+
+function LockedKpiStatusCard({ rows }: { rows: OwnerDashboardData["lockedKpiMonths"] }) {
+  if (rows.length === 0) {
+    return (
+      <article className="rounded-[24px] border border-line bg-surface p-5">
+        <div className="inline-flex rounded-full border border-pending/15 bg-pending/10 px-3 py-1 text-xs font-semibold text-pending">
+          Belum ada lock KPI
+        </div>
+        <p className="mt-4 text-lg font-semibold text-foreground">Periode KPI final belum ada</p>
+        <p className="mt-2 text-sm leading-7 text-muted">
+          Setelah owner mengunci KPI dari menu Pengaturan, periode final akan muncul di sini agar
+          mudah dipantau dari dashboard.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="rounded-[24px] border border-line bg-surface p-5">
+      <div className="inline-flex rounded-full border border-success/15 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+        KPI terkunci
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {rows.map((row) => (
+          <div key={row.key} className="rounded-[20px] border border-line bg-white px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{row.label}</p>
+              <span className="inline-flex rounded-full border border-success/15 bg-success/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-success">
+                Final
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-6 text-muted">
+              Dikunci {formatDateTime(row.lockedAt)} oleh {row.lockedByName}
+            </p>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function EmployeeSummary({ data }: { data: EmployeeDashboardData }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[0.46fr_0.54fr]">
       <article className="rounded-[24px] border border-line bg-surface p-5">
         <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">Penjelasan KPI</div>
         <p className="mt-4 text-sm leading-8 text-muted">{data.narrative}</p>
-        <div className="mt-5 rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">KPI bulanan memakai bobot 70 persen kinerja dan 30 persen disiplin. KPI tahunan dihitung dari total KPI bulanan dalam satu tahun dibagi 12.</div>
+        <div className="mt-5 rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">KPI bulanan memakai bobot 90 persen kinerja berbobot pekerjaan dan 10 persen disiplin. KPI tahunan dihitung dari total KPI bulanan dalam satu tahun dibagi 12.</div>
       </article>
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard description="Ringkasan KPI untuk periode bulan berjalan." label="KPI bulanan" tone={(data.monthlyKpi?.totalScore ?? 0) >= 80 ? "success" : "default"} value={data.monthlyKpi ? formatScore(data.monthlyKpi.totalScore) : "-"} />
         <StatCard description="Rata-rata tahunan yang dipakai untuk evaluasi bonus." label="KPI tahunan" tone={(data.yearlyKpi?.avgScore ?? 0) >= 80 ? "success" : "default"} value={data.yearlyKpi ? formatScore(data.yearlyKpi.avgScore) : "-"} />
       </div>
+    </div>
+  );
+}
+
+function EmployeeStopCardForm() {
+  return (
+    <form action={submitStopCardAction} className="grid gap-4 rounded-[24px] border border-line bg-surface p-5">
+      <div className="inline-flex w-fit rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+        Kirim anonim ke owner
+      </div>
+      <InputField
+        label="Judul STOP CARD"
+        name="title"
+        placeholder="Contoh: Ada situasi komunikasi yang bikin tidak nyaman"
+        required
+      />
+      <TextareaField
+        label="Isi STOP CARD"
+        maxLength={3000}
+        name="content"
+        placeholder="Tulis kejadian, konteks, dan hal yang menurut Anda perlu diketahui owner. Identitas pengirim tidak akan ditampilkan di dashboard owner."
+      />
+      <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+        STOP CARD dipakai untuk membantu owner memahami situasi di kantor secara lebih jujur.
+        Isi laporan akan tampil anonim di dashboard owner.
+      </div>
+      <div>
+        <ActionButton>Kirim STOP CARD</ActionButton>
+      </div>
+    </form>
+  );
+}
+
+function EmployeeStopCardHistory({ rows }: { rows: EmployeeDashboardData["stopCards"] }) {
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        title="Belum ada STOP CARD"
+        description="Setelah Anda mengirim STOP CARD, riwayat pribadi dan status tindak lanjutnya akan tampil di sini."
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {rows.map((row) => (
+        <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-lg font-semibold text-foreground">{row.title}</p>
+            <StatusChip label={stopCardStatusLabel(row.status)} tone={stopCardStatusTone(row.status)} />
+          </div>
+          <p className="mt-4 rounded-2xl border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+            {row.content}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted">
+            <span>Dikirim {formatDateTime(row.createdAt)}</span>
+            <span>Update status {formatDateTime(row.updatedAt)}</span>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) {
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        title="Belum ada STOP CARD masuk"
+        description="Saat karyawan mulai mengirim STOP CARD, owner akan melihat isi laporan di sini tanpa identitas pengirim."
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {rows.map((row) => (
+        <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-2">
+              <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+                Pengirim anonim
+              </div>
+              <p className="text-lg font-semibold text-foreground">{row.title}</p>
+            </div>
+            <StatusChip label={stopCardStatusLabel(row.status)} tone={stopCardStatusTone(row.status)} />
+          </div>
+          <p className="mt-4 rounded-2xl border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+            {row.content}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted">
+            <span>Masuk {formatDateTime(row.createdAt)}</span>
+            <span>Status terakhir {formatDateTime(row.updatedAt)}</span>
+          </div>
+          <form action={updateStopCardStatusAction} className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
+            <input name="stopCardId" type="hidden" value={row.id} />
+            <label className="space-y-2 md:min-w-[240px]">
+              <span className="text-sm font-semibold text-foreground">Status owner</span>
+              <select
+                className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+                defaultValue={row.status}
+                name="status"
+                required
+              >
+                <option value={StopCardStatus.BARU}>Baru</option>
+                <option value={StopCardStatus.DIBACA}>Dibaca</option>
+                <option value={StopCardStatus.DITINDAKLANJUTI}>Ditindaklanjuti</option>
+                <option value={StopCardStatus.SELESAI}>Selesai</option>
+              </select>
+            </label>
+            <div>
+              <ActionButton tone="light">Simpan status</ActionButton>
+            </div>
+          </form>
+        </article>
+      ))}
     </div>
   );
 }
@@ -344,11 +762,29 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
       <CardSection title="Aksi owner" description="Owner bisa memperbarui finance tahunan, menjalankan sync KPI, dan menambah pekerjaan baru dari sini.">
         <div className="grid gap-4 xl:grid-cols-[0.6fr_0.4fr]"><div className="space-y-4"><FinanceForm data={data} /><CreateProgressForm teamUsers={data.teamUsers} /></div><SyncKpiCard /></div>
       </CardSection>
+      <CardSection title="Status KPI final" description="Periode yang sudah dikunci tampil di sini agar owner cepat mengetahui bulan evaluasi mana yang hasilnya sudah final.">
+        <LockedKpiStatusCard rows={data.lockedKpiMonths} />
+      </CardSection>
+      <CardSection title="Nilai KPI final" description="Panel ini menampilkan nilai KPI yang sudah terkunci agar owner bisa melihat angka final tanpa masuk ke halaman Pengaturan.">
+        <LockedKpiValuesPanel data={data} />
+      </CardSection>
       <CardSection title="Overview absensi hari ini" description="Warna hijau menandakan on time, merah untuk terlambat, dan kuning untuk OFF."><AttendanceTable rows={data.attendanceToday} emptyDescription="Data absensi akan muncul di sini setelah tim mulai check-in atau menandai OFF." /></CardSection>
-      <CardSection title="Daily progress berjalan" description="Owner dapat mengedit pekerjaan aktif, mengubah PIC, dan melakukan closing bila pekerjaan selesai."><ManagerProgressList rows={data.recentProgress} teamUsers={data.teamUsers} /></CardSection>
-      <CardSection title="Completed work recap" description="Rekap pekerjaan yang sudah closing membantu owner melihat deliverable yang benar-benar selesai."><CompletedProgressRecap rows={data.completedProgressRows} emptyDescription="Belum ada item yang closing. Setelah admin atau owner melakukan closing, ringkasan akan tampil di sini." /></CardSection>
-      <CardSection title="KPI bulanan tim" description="Owner dapat memantau KPI bulanan seluruh tim dari skor kinerja dan disiplin yang sudah dihitung."><MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada KPI bulanan. Jalankan sync KPI setelah data absensi dan progres mulai terisi." /></CardSection>
+      <CardSection title="Daily progress berjalan" description="Owner dapat mengedit pekerjaan aktif, mengubah PIC, dan melakukan closing bila pekerjaan selesai."><ManagerProgressList rows={serializeProgressRows(data.recentProgress)} teamUsers={data.teamUsers} /></CardSection>
+      <CardSection title="Completed work recap" description="Rekap pekerjaan yang sudah closing membantu owner melihat deliverable yang benar-benar selesai."><CompletedProgressRecap allowDelete rows={data.completedProgressRows} emptyDescription="Belum ada item yang closing. Setelah admin atau owner melakukan closing, ringkasan akan tampil di sini." /></CardSection>
+      <CardSection title="STOP CARD masuk" description="Laporan antar karyawan tampil anonim di sini agar owner bisa membaca situasi kantor tanpa melihat identitas pengirim.">
+        <OwnerStopCardList rows={data.stopCards} />
+      </CardSection>
+      <CardSection title="KPI bulanan tim" description="Owner dapat memantau KPI bulanan seluruh tim dari skor kinerja dan disiplin yang sudah dihitung.">
+        <OwnerMonthlyKpiStatus
+          isFinal={data.monthlyKpiIsFinal}
+          periodLabel={data.monthlyKpiPeriodLabel}
+        />
+        <MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada KPI bulanan. Jalankan sync KPI setelah data absensi dan progres mulai terisi." />
+      </CardSection>
       <CardSection title="Bonus calculator" description="Simulasi bonus tahunan menggunakan bonus pool perusahaan dan KPI tahunan karyawan yang eligible."><YearlyBonusTable data={data} /></CardSection>
+      <CardSection title="Simulasi uang per karyawan" description="Owner bisa menguji pembagian uang berdasarkan rata-rata KPI pada rentang bulan yang dipilih, tanpa mengubah data KPI asli.">
+        <KpiMoneySimulationPanel data={data} />
+      </CardSection>
     </div>
   );
 }
@@ -363,7 +799,7 @@ function AdminPanel({ data }: { data: AdminDashboardData }) {
         <StatCard description="Ringkasan keterlambatan hari ini." label="Terlambat" tone="warning" value={String(data.attendanceSummary.late)} />
       </section>
       <CardSection title="Aksi admin" description="Admin dapat menambahkan pekerjaan baru dan menjalankan ulang sinkron KPI bila ada banyak update."><div className="grid gap-4 xl:grid-cols-[0.65fr_0.35fr]"><CreateProgressForm teamUsers={data.teamUsers} /><SyncKpiCard /></div></CardSection>
-      <CardSection title="Tabel daily progress" description="Admin memegang kontrol utama pada tabel progres harian, termasuk assignment, revisi, done, dan closing."><ManagerProgressList rows={data.progressRows} teamUsers={data.teamUsers} /></CardSection>
+      <CardSection title="Tabel daily progress" description="Admin memegang kontrol utama pada tabel progres harian, termasuk assignment, revisi, done, dan closing."><ManagerProgressList rows={serializeProgressRows(data.progressRows)} teamUsers={data.teamUsers} /></CardSection>
       <CardSection title="Completed list" description="Ringkasan pekerjaan yang sudah closing membantu admin mengecek backlog yang benar-benar selesai."><CompletedProgressRecap rows={data.completedProgressRows} emptyDescription="Belum ada pekerjaan yang dipindahkan ke completed list." /></CardSection>
       <CardSection title="KPI bulanan terbaru" description="Admin bisa memakai tabel ini untuk melihat performa terbaru sebelum review dengan owner."><MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada perhitungan KPI yang tersimpan untuk ditinjau admin." /></CardSection>
     </div>
@@ -379,8 +815,14 @@ function EmployeePanel({ data }: { data: EmployeeDashboardData }) {
         <StatCard description="Waktu pulang terakhir yang tercatat hari ini." label="Check-out" value={data.attendanceToday ? formatDateTime(data.attendanceToday.checkOut) : "-"} />
       </section>
       <CardSection title="Attendance system" description="Bagian ini adalah pusat absensi pribadi Anda untuk hari berjalan."><AttendanceActions data={data} /></CardSection>
+      <CardSection title="STOP CARD" description="Gunakan ruang ini untuk menceritakan situasi yang terjadi di kantor. Owner akan membaca isi laporan tanpa melihat identitas pengirim.">
+        <div className="grid gap-4 xl:grid-cols-[0.44fr_0.56fr]">
+          <EmployeeStopCardForm />
+          <EmployeeStopCardHistory rows={data.stopCards} />
+        </div>
+      </CardSection>
       <CardSection title="Ringkasan KPI pribadi" description="Ringkasan ini membantu karyawan memahami cara KPI dibaca tanpa harus membuka tabel mentah."><EmployeeSummary data={data} /></CardSection>
-      <CardSection title="Riwayat absensi pribadi" description="Lima catatan absensi terakhir akan muncul di sini sebagai referensi pola kedisiplinan pribadi."><AttendanceTable rows={data.recentAttendance} emptyDescription="Belum ada riwayat absensi. Setelah mulai check-in, riwayat pribadi akan tampil di sini." /></CardSection>
+      <CardSection title="Riwayat absensi pribadi" description="Tujuh catatan absensi terakhir akan muncul di sini sebagai referensi pola kedisiplinan pribadi."><AttendanceTable rows={data.recentAttendance} emptyDescription="Belum ada riwayat absensi. Setelah mulai check-in, riwayat pribadi akan tampil di sini." /></CardSection>
       <CardSection title="Progres kerja pribadi" description="Karyawan dapat memperbarui tanggal selesai dan revisi done untuk pekerjaan yang menjadi tanggung jawabnya."><EmployeeProgressList rows={data.progressRows} /></CardSection>
     </div>
   );

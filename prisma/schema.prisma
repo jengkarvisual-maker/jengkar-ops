@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -19,6 +20,13 @@ enum AttendanceStatus {
   OFF
 }
 
+enum StopCardStatus {
+  BARU
+  DIBACA
+  DITINDAKLANJUTI
+  SELESAI
+}
+
 model User {
   id            String         @id @default(cuid())
   authUserId    String?        @unique @db.Uuid
@@ -28,9 +36,11 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   attendances   Attendance[]
+  stopCards     StopCard[]
   dailyProgress DailyProgress[]
   monthlyKpis   KpiMonthly[]
   yearlyKpis    KpiYearly[]
+  lockedKpiMonths KpiMonthLock[] @relation("KpiMonthLockedBy")
 }
 
 model Attendance {
@@ -48,9 +58,24 @@ model Attendance {
   @@index([date])
 }
 
+model StopCard {
+  id        String         @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  status    StopCardStatus @default(BARU)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
 model DailyProgress {
   id             String   @id @default(cuid())
   pekerjaan      String
+  detail         String?
   userId         String
   targetSelesai  DateTime? @db.Date
   tanggalMulai   DateTime? @db.Date
@@ -58,7 +83,9 @@ model DailyProgress {
   tanggalRevisi  DateTime? @db.Date
   revisiDone     DateTime? @db.Date
   closing        Boolean   @default(false)
+  hiddenFromDashboard Boolean @default(false)
   isDone         Boolean   @default(false)
+  canceledAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -94,6 +121,18 @@ model KpiYearly {
 
   @@unique([userId, year])
   @@index([year])
+}
+
+model KpiMonthLock {
+  id             String   @id @default(cuid())
+  year           Int
+  month          Int
+  lockedAt       DateTime @default(now())
+  lockedByUserId String
+  lockedBy       User     @relation("KpiMonthLockedBy", fields: [lockedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([year, month])
+  @@index([lockedAt])
 }
 
 model CompanyFinance {

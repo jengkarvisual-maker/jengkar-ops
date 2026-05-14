@@ -1,39 +1,101 @@
 import { AttendanceStatus, UserRole } from "@prisma/client";
 
+export const APP_TIME_ZONE = "Asia/Jakarta";
+const APP_UTC_OFFSET_HOURS = 7;
+
 const TWO_DIGIT_NUMBER = new Intl.NumberFormat("id-ID", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
+
+const APP_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+function parseDate(value?: Date | string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = typeof value === "string" ? new Date(value) : value;
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function getDatePartMap(date: Date) {
+  return APP_DATE_PARTS_FORMATTER.formatToParts(date).reduce<Record<string, string>>((map, part) => {
+    if (part.type !== "literal") {
+      map[part.type] = part.value;
+    }
+
+    return map;
+  }, {});
+}
+
+export function getAppDateParts(date = new Date()) {
+  const parts = getDatePartMap(date);
+
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    second: Number(parts.second),
+    weekday: parts.weekday,
+  };
+}
+
+function createAppCalendarDate(year: number, month: number, day: number) {
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+}
+
+function createAppTimestamp(year: number, month: number, day: number, hour = 0, minute = 0, second = 0) {
+  return new Date(Date.UTC(year, month - 1, day, hour - APP_UTC_OFFSET_HOURS, minute, second, 0));
+}
 
 export function roundNumber(value: number, digits = 2) {
   return Number(value.toFixed(digits));
 }
 
 export function startOfDay(date = new Date()) {
-  const value = new Date(date);
-  value.setHours(0, 0, 0, 0);
-  return value;
+  const { year, month, day } = getAppDateParts(date);
+  return createAppCalendarDate(year, month, day);
 }
 
 export function addDays(date: Date, days: number) {
   const value = new Date(date);
-  value.setDate(value.getDate() + days);
+  value.setUTCDate(value.getUTCDate() + days);
   return value;
 }
 
 export function startOfMonth(date = new Date()) {
-  const value = new Date(date);
-  value.setDate(1);
-  value.setHours(0, 0, 0, 0);
-  return value;
+  const { year, month } = getAppDateParts(date);
+  return createAppCalendarDate(year, month, 1);
 }
 
 export function getMonthBounds(year: number, month: number) {
-  const start = new Date(year, month - 1, 1);
-  start.setHours(0, 0, 0, 0);
+  const start = createAppCalendarDate(year, month, 1);
+  const end = createAppCalendarDate(year, month + 1, 1);
 
-  const end = new Date(year, month, 1);
-  end.setHours(0, 0, 0, 0);
+  return { start, end };
+}
+
+export function getMonthTimestampBounds(year: number, month: number) {
+  const start = createAppTimestamp(year, month, 1);
+  const end = createAppTimestamp(year, month + 1, 1);
 
   return { start, end };
 }
@@ -49,9 +111,24 @@ export function parseDateInput(value?: FormDataEntryValue | string | null) {
     return null;
   }
 
-  const date = new Date(`${normalized}T00:00:00`);
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = createAppCalendarDate(year, month, day);
+  const resolved = getAppDateParts(date);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    resolved.year !== year ||
+    resolved.month !== month ||
+    resolved.day !== day
+  ) {
     return null;
   }
 
@@ -59,36 +136,30 @@ export function parseDateInput(value?: FormDataEntryValue | string | null) {
 }
 
 export function formatDateInput(value?: Date | string | null) {
-  if (!value) {
+  const date = parseDate(value);
+
+  if (!date) {
     return "";
   }
 
-  const date = typeof value === "string" ? new Date(value) : value;
+  const { year, month, day } = getAppDateParts(date);
 
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return `${year}-${`${month}`.padStart(2, "0")}-${`${day}`.padStart(2, "0")}`;
 }
 
 export function getWorkdaySchedule(date = new Date()) {
-  const day = date.getDay();
+  const { weekday } = getAppDateParts(date);
 
-  if (day === 0) {
+  if (weekday === "Sun") {
     return {
-      isOff: true,
-      label: "Minggu libur",
+      isOff: false,
+      label: "Minggu 09:00-16:00",
       start: "09:00",
-      end: "00:00",
+      end: "16:00",
     };
   }
 
-  if (day === 6) {
+  if (weekday === "Sat") {
     return {
       isOff: false,
       label: "Sabtu 09:00-15:00",
@@ -105,6 +176,10 @@ export function getWorkdaySchedule(date = new Date()) {
   };
 }
 
+export function isSunday(date = new Date()) {
+  return getAppDateParts(date).weekday === "Sun";
+}
+
 export function resolveAttendanceStatus(date: Date, checkIn?: Date | null) {
   const schedule = getWorkdaySchedule(date);
 
@@ -112,8 +187,8 @@ export function resolveAttendanceStatus(date: Date, checkIn?: Date | null) {
     return AttendanceStatus.OFF;
   }
 
-  const threshold = new Date(date);
-  threshold.setHours(9, 0, 0, 0);
+  const { year, month, day } = getAppDateParts(date);
+  const threshold = createAppTimestamp(year, month, day, 9, 0, 0);
 
   return checkIn.getTime() > threshold.getTime()
     ? AttendanceStatus.LATE
@@ -121,7 +196,7 @@ export function resolveAttendanceStatus(date: Date, checkIn?: Date | null) {
 }
 
 export function calculateMonthlyKpi(scoreKinerja: number, scoreDisiplin: number) {
-  return roundNumber(scoreKinerja * 0.7 + scoreDisiplin * 0.3);
+  return roundNumber(scoreKinerja * 0.9 + scoreDisiplin * 0.1);
 }
 
 export function calculateYearlyAverage(monthlyScores: number[]) {
@@ -148,22 +223,18 @@ export function calculateIndividualBonus(input: {
     return 0;
   }
 
-  let bonus = bonusPool * (individualKpi / totalEligibleKpi);
-
-  if (individualKpi >= 95) {
-    bonus *= 1.1;
-  }
-
-  return roundNumber(bonus);
+  return roundNumber(bonusPool * (individualKpi / totalEligibleKpi));
 }
 
 export function formatDate(value?: Date | string | null) {
-  if (!value) {
+  const date = parseDate(value);
+
+  if (!date) {
     return "-";
   }
 
-  const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -171,25 +242,29 @@ export function formatDate(value?: Date | string | null) {
 }
 
 export function formatDateTime(value?: Date | string | null) {
-  if (!value) {
+  const date = parseDate(value);
+
+  if (!date) {
     return "-";
   }
 
-  const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
   }).format(date);
 }
 
 export function formatMonthYear(month: number, year: number) {
   return new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIME_ZONE,
     month: "long",
     year: "numeric",
-  }).format(new Date(year, month - 1, 1));
+  }).format(createAppCalendarDate(year, month, 1));
 }
 
 export function formatCurrency(value: number) {
@@ -250,7 +325,8 @@ export function compactYearMonths(values: Array<Date | null | undefined>) {
       return;
     }
 
-    keys.add(`${value.getFullYear()}-${value.getMonth() + 1}`);
+    const { year, month } = getAppDateParts(value);
+    keys.add(`${year}-${month}`);
   });
 
   return Array.from(keys).map((key) => {

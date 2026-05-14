@@ -18,13 +18,13 @@ export default function UnauthorizedPage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            className="inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 font-semibold transition hover:border-accent/30 hover:text-accent"
+            className="button-press inline-flex h-11 items-center justify-center rounded-full border border-line bg-surface px-5 font-semibold transition hover:border-accent/30 hover:text-accent"
             href="/"
           >
             Kembali ke landing page
           </Link>
           <form action={signOutAction}>
-            <button className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 font-semibold text-background transition hover:bg-foreground/90" type="submit">
+            <button className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 font-semibold text-background transition hover:bg-foreground/90" type="submit">
               Keluar dari sesi ini
             </button>
           </form>
