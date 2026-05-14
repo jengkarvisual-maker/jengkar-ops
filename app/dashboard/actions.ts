@@ -20,6 +20,17 @@ import {
 type FeedbackType = "success" | "error";
 const OPS_DASHBOARD_TAG = "ops-dashboard";
 
+export type HideCompletedProgressResult =
+  | {
+      ok: true;
+      progressId: string;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 function refreshDashboard() {
   revalidateTag(OPS_DASHBOARD_TAG, "max");
   revalidatePath("/dashboard");
@@ -588,6 +599,77 @@ export async function deleteCompletedProgressAction(formData: FormData) {
     "success",
     "Pekerjaan berhasil disembunyikan dari dashboard tanpa menghapus nilai KPI yang sudah terbentuk.",
   );
+}
+
+export async function hideCompletedProgressFromDashboardAction(
+  progressId: string,
+): Promise<HideCompletedProgressResult> {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.OWNER) {
+    return {
+      ok: false,
+      message: "Hanya Owner yang bisa menghapus pekerjaan yang sudah closing.",
+    };
+  }
+
+  const normalizedProgressId = progressId.trim();
+
+  if (!normalizedProgressId) {
+    return {
+      ok: false,
+      message: "ID progres wajib diisi.",
+    };
+  }
+
+  const progress = await prisma.dailyProgress.findUnique({
+    where: {
+      id: normalizedProgressId,
+    },
+    select: {
+      id: true,
+      closing: true,
+      hiddenFromDashboard: true,
+    },
+  });
+
+  if (!progress) {
+    return {
+      ok: false,
+      message: "Baris progres tidak ditemukan.",
+    };
+  }
+
+  if (!progress.closing) {
+    return {
+      ok: false,
+      message: "Hanya pekerjaan yang sudah closing yang bisa dihapus dari recap.",
+    };
+  }
+
+  if (progress.hiddenFromDashboard) {
+    return {
+      ok: false,
+      message: "Pekerjaan ini sudah disembunyikan dari dashboard.",
+    };
+  }
+
+  await prisma.dailyProgress.update({
+    where: {
+      id: progress.id,
+    },
+    data: {
+      hiddenFromDashboard: true,
+    },
+  });
+
+  refreshDashboard();
+
+  return {
+    ok: true,
+    progressId: progress.id,
+    message: "Pekerjaan berhasil disembunyikan dari dashboard.",
+  };
 }
 
 export async function deleteAllCompletedProgressAction() {

@@ -5,8 +5,6 @@ import {
   checkInAction,
   checkOutAction,
   createProgressAction,
-  deleteAllCompletedProgressAction,
-  deleteCompletedProgressAction,
   markOffAction,
   saveFinanceAction,
   submitStopCardAction,
@@ -14,6 +12,7 @@ import {
   updateStopCardStatusAction,
   updateEmployeeProgressAction,
 } from "@/app/dashboard/actions";
+import { CompletedProgressRecapClient } from "@/components/completed-progress-recap-client";
 import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
 import { JOB_OPTIONS } from "@/lib/job-catalog";
 import {
@@ -361,31 +360,32 @@ function CompletedProgressRecap({
   allowDelete?: boolean;
 }) {
   if (rows.length === 0) return <EmptyState description={emptyDescription} title="Belum ada pekerjaan yang closing" />;
+
+  if (allowDelete) {
+    return (
+      <CompletedProgressRecapClient
+        emptyDescription={emptyDescription}
+        rows={rows.map((row) => ({
+          id: row.id,
+          pekerjaan: row.pekerjaan,
+          detail: row.detail,
+          name: row.name,
+          tanggalMulai: row.tanggalMulai?.toISOString() ?? null,
+          tanggalSelesai: row.tanggalSelesai?.toISOString() ?? null,
+          revisiDone: row.revisiDone?.toISOString() ?? null,
+        }))}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {allowDelete ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-line bg-surface p-5">
-          <p className="text-sm leading-7 text-muted">
-            Anda bisa menyembunyikan semua recap sekaligus. Histori pekerjaan dan nilai KPI yang
-            sudah terbentuk tetap aman.
-          </p>
-          <form action={deleteAllCompletedProgressAction}>
-            <ActionButton tone="danger">Sembunyikan semua recap</ActionButton>
-          </form>
-        </div>
-      ) : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((row) => (
           <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
             <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-foreground">{row.pekerjaan}</p><p className="mt-1 text-sm text-muted">{row.name}</p></div><StatusChip label="Closed" tone="success" /></div>
             {row.detail ? <p className="mt-4 rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-7 text-muted">{row.detail}</p> : null}
             <div className="mt-4 space-y-2 text-sm text-muted"><p>Mulai: {formatDate(row.tanggalMulai)}</p><p>Selesai: {formatDate(row.tanggalSelesai)}</p><p>Revisi done: {formatDate(row.revisiDone)}</p></div>
-            {allowDelete ? (
-              <form action={deleteCompletedProgressAction} className="mt-4">
-                <input name="progressId" type="hidden" value={row.id} />
-                <ActionButton tone="danger">Hapus dari dashboard</ActionButton>
-              </form>
-            ) : null}
           </article>
         ))}
       </div>
