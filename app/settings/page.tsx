@@ -25,6 +25,10 @@ export default async function SettingsPage() {
 
   return (
     <DashboardShell
+      auxiliaryLink={{
+        href: "/dashboard",
+        label: "Kembali ke Dashboard",
+      }}
       description="Kelola keamanan akun pribadi Anda di sini. Password baru akan langsung berlaku untuk login berikutnya."
       title="Pengaturan Akun"
       user={user}

@@ -58,6 +58,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     return (
       <DashboardShell
+        auxiliaryLink={{
+          href: "/settings",
+          label: "Pengaturan",
+        }}
         description={ROLE_COPY.OWNER.description}
         feedback={feedback}
         title="Dashboard Owner"
@@ -73,6 +77,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     return (
       <DashboardShell
+        auxiliaryLink={{
+          href: "/settings",
+          label: "Pengaturan",
+        }}
         description={ROLE_COPY.ADMIN.description}
         feedback={feedback}
         title="Dashboard Admin"
@@ -87,6 +95,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <DashboardShell
+      auxiliaryLink={{
+        href: "/settings",
+        label: "Pengaturan",
+      }}
       description={ROLE_COPY.KARYAWAN.description}
       feedback={feedback}
       title="Dashboard Karyawan"

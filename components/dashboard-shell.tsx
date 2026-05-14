@@ -7,6 +7,10 @@ import { APP_NAME } from "@/lib/constants";
 import { getRoleLabel } from "@/lib/utils";
 
 type DashboardShellProps = {
+  auxiliaryLink?: {
+    href: string;
+    label: string;
+  } | null;
   children: ReactNode;
   description: string;
   feedback?: {
@@ -22,6 +26,7 @@ type DashboardShellProps = {
 };
 
 export function DashboardShell({
+  auxiliaryLink,
   children,
   description,
   feedback,
@@ -55,26 +60,14 @@ export function DashboardShell({
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap gap-3">
-                <Link
-                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
-                  href="/"
-                >
-                  Landing app
-                </Link>
-                <Link
-                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
-                  href="/settings"
-                >
-                  Pengaturan
-                </Link>
-                <a
-                  className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
-                  href="https://rumahjengkar.com"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Portal utama
-                </a>
+                {auxiliaryLink ? (
+                  <Link
+                    className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
+                    href={auxiliaryLink.href}
+                  >
+                    {auxiliaryLink.label}
+                  </Link>
+                ) : null}
                 <form action={signOutAction}>
                   <button
                     className="button-press inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90"
