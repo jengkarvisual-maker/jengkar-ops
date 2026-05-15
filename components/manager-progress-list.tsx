@@ -248,7 +248,37 @@ export function ManagerProgressList({
   const [isPending, startTransition] = useTransition();
   const initialUserId = rows[0]?.userId ?? teamUsers[0]?.id ?? "";
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
-  const selectedUser = teamUsers.find((user) => user.id === selectedUserId) ?? teamUsers[0];
+  const filterUsers = useMemo(() => {
+    const users: Array<{ id: string; name: string }> = [];
+    const seen = new Set<string>();
+
+    localRows.forEach((row) => {
+      if (seen.has(row.userId)) {
+        return;
+      }
+
+      seen.add(row.userId);
+      users.push({
+        id: row.userId,
+        name: row.name,
+      });
+    });
+
+    teamUsers.forEach((user) => {
+      if (seen.has(user.id)) {
+        return;
+      }
+
+      seen.add(user.id);
+      users.push({
+        id: user.id,
+        name: user.name,
+      });
+    });
+
+    return users;
+  }, [localRows, teamUsers]);
+  const selectedUser = filterUsers.find((user) => user.id === selectedUserId) ?? filterUsers[0];
   const selectedRows = useMemo(
     () => localRows.filter((row) => row.userId === selectedUser?.id),
     [localRows, selectedUser?.id],
@@ -257,6 +287,16 @@ export function ManagerProgressList({
   useEffect(() => {
     setLocalRows(rows);
   }, [rows]);
+
+  useEffect(() => {
+    if (filterUsers.length === 0) {
+      return;
+    }
+
+    if (!filterUsers.some((user) => user.id === selectedUserId)) {
+      setSelectedUserId(filterUsers[0].id);
+    }
+  }, [filterUsers, selectedUserId]);
 
   function toCompletedRow(row: ManagerProgressMutationRow): CompletedProgressRecapRow {
     return {
@@ -337,7 +377,7 @@ export function ManagerProgressList({
     syncDashboardInBackground();
   }
 
-  if (teamUsers.length === 0) {
+  if (filterUsers.length === 0) {
     return <EmptyState description="Belum ada akun karyawan yang bisa dipilih untuk pengelolaan pekerjaan." title="Belum ada karyawan" />;
   }
 
@@ -351,7 +391,7 @@ export function ManagerProgressList({
             onChange={(event) => setSelectedUserId(event.target.value)}
             value={selectedUser?.id ?? ""}
           >
-            {teamUsers.map((user) => (
+            {filterUsers.map((user) => (
               <option key={user.id} value={user.id}>{user.name}</option>
             ))}
           </select>
