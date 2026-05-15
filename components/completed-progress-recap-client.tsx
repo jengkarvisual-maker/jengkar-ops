@@ -34,9 +34,9 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-line bg-surface px-5 py-10 text-center">
+    <div className="ui-surface border-dashed px-5 py-8 text-center">
       <p className="text-lg font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-muted">{description}</p>
+      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>
     </div>
   );
 }
@@ -178,14 +178,14 @@ export function CompletedProgressRecapClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-line bg-surface p-5">
-        <p className="text-sm leading-7 text-muted">
+      <div className="ui-surface flex flex-wrap items-center justify-between gap-3 p-4 md:p-5">
+        <p className="text-sm leading-6 text-muted">
           Anda bisa menyembunyikan semua recap sekaligus. Histori pekerjaan dan nilai KPI yang
           sudah terbentuk tetap aman.
         </p>
         <div className="flex flex-wrap gap-3">
           <button
-            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="button-press ui-button-danger disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isBulkPending}
             onClick={() => void handleHideAll()}
             type="button"
@@ -196,7 +196,7 @@ export function CompletedProgressRecapClient({
       </div>
 
       {feedback ? (
-        <div className="rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm leading-7 text-success">
+        <div className="rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm leading-6 text-success">
           {feedback}
           {isPending ? " Menyegarkan dashboard..." : null}
         </div>
@@ -207,7 +207,7 @@ export function CompletedProgressRecapClient({
           const isRowPending = pendingId === row.id;
 
           return (
-            <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
+            <article className="ui-surface p-4 md:p-5" key={row.id}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-foreground">{row.pekerjaan}</p>
@@ -216,7 +216,7 @@ export function CompletedProgressRecapClient({
                 <StatusChip label="Closed" tone="success" />
               </div>
               {row.detail ? (
-                <p className="mt-4 rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-7 text-muted">
+                <p className="ui-card mt-4 px-4 py-3 text-sm leading-6 text-muted">
                   {row.detail}
                 </p>
               ) : null}
@@ -227,7 +227,7 @@ export function CompletedProgressRecapClient({
               </div>
               <div className="mt-4">
                 <button
-                  className="button-press inline-flex h-11 items-center justify-center rounded-full bg-warning px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="button-press ui-button-danger disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isRowPending}
                   onClick={() => void handleHide(row.id)}
                   type="button"

@@ -34,35 +34,41 @@ export function DashboardShell({
   user,
 }: DashboardShellProps) {
   return (
-    <main className="min-h-screen px-4 py-6 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-8">
+    <main className="ui-page-shell">
+      <div className="ui-page-container space-y-5">
+        <header className="ui-panel p-5 md:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-4">
-              <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+            <div className="space-y-3">
+              <div className="ui-pill">
                 {APP_NAME}
               </div>
               <div>
-                <p className="font-mono text-sm text-muted">Dashboard internal</p>
-                <h1 className="mt-2 font-serif text-4xl text-foreground md:text-5xl">{title}</h1>
-                <p className="mt-3 max-w-3xl text-base leading-8 text-muted">{description}</p>
+                <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">
+                  Dashboard internal
+                </p>
+                <h1 className="mt-2 text-[2.2rem] font-extrabold tracking-[-0.04em] text-foreground md:text-[3rem]">
+                  {title}
+                </h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-muted md:text-[0.96rem]">
+                  {description}
+                </p>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-line bg-surface p-5 lg:min-w-[320px]">
+            <div className="ui-surface p-4 lg:min-w-[300px]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{user.name}</p>
                   <p className="mt-1 text-sm text-muted">{user.email}</p>
                 </div>
-                <div className="rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                <div className="ui-pill px-3 py-1 text-[0.68rem] tracking-[0.12em]">
                   {getRoleLabel(user.role)}
                 </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-2.5">
                 {auxiliaryLink ? (
                   <Link
-                    className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold transition hover:border-accent/30 hover:text-accent"
+                    className="button-press ui-button-secondary"
                     href={auxiliaryLink.href}
                   >
                     {auxiliaryLink.label}
@@ -76,7 +82,7 @@ export function DashboardShell({
 
         {feedback ? (
           <section
-            className={`rounded-[24px] border px-5 py-4 text-sm leading-7 shadow-[var(--shadow-soft)] ${
+            className={`ui-surface px-4 py-3 text-sm leading-7 ${
               feedback.type === "success"
                 ? "border-success/15 bg-success/10 text-success"
                 : "border-warning/15 bg-warning/10 text-warning"

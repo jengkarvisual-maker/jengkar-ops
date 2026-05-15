@@ -72,9 +72,9 @@ function stopCardStatusLabel(status: StopCardStatus) {
 
 function CardSection({ children, title, description }: { children: ReactNode; title: string; description?: string }) {
   return (
-    <section className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
+    <section className="ui-panel p-5 md:p-6">
       <div className="flex flex-col gap-2 border-b border-line/80 pb-5">
-        <h2 className="font-serif text-3xl text-foreground">{title}</h2>
+        <h2 className="text-[1.7rem] font-extrabold tracking-[-0.03em] text-foreground">{title}</h2>
         {description ? <p className="text-sm leading-7 text-muted">{description}</p> : null}
       </div>
       <div className="pt-5">{children}</div>
@@ -104,19 +104,19 @@ function TitleStatusChip({
 
 function StatCard({ label, value, description, tone = "default" }: { label: string; value: string; description: string; tone?: "default" | "success" | "warning" | "pending" }) {
   return (
-    <article className="rounded-[24px] border border-line bg-surface p-5">
+    <article className="ui-card p-4 md:p-5">
       <div className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(tone)}`}>{label}</div>
-      <p className="mt-4 text-3xl font-semibold text-foreground">{value}</p>
-      <p className="mt-2 text-sm leading-7 text-muted">{description}</p>
+      <p className="mt-3 text-[2rem] font-extrabold tracking-[-0.04em] text-foreground">{value}</p>
+      <p className="mt-1.5 text-sm leading-6 text-muted">{description}</p>
     </article>
   );
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-line bg-surface px-5 py-10 text-center">
+    <div className="ui-surface border-dashed px-5 py-8 text-center">
       <p className="text-lg font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-muted">{description}</p>
+      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>
     </div>
   );
 }
@@ -194,18 +194,18 @@ function DashboardTabQueryField({ value }: { value: OwnerDashboardTab }) {
 
 function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
   return (
-    <div className="space-y-3 rounded-[24px] border border-line bg-panel/95 p-4 shadow-[var(--shadow-soft)] backdrop-blur md:p-5">
+    <div className="ui-panel space-y-3 p-4 md:p-5">
       <div className="overflow-x-auto">
-        <div className="inline-flex min-w-max gap-2">
+        <div className="inline-flex min-w-max gap-2 rounded-full border border-line bg-[#f7f7f8] p-1">
           {OWNER_TAB_ITEMS.map((tab) => {
             const isActive = tab.key === activeTab;
 
             return (
               <Link
-                className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                className={`button-press inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-foreground text-background"
-                    : "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent"
+                    ? "bg-foreground text-background shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
+                    : "text-foreground/70 hover:text-foreground"
                 }`}
                 href={`/dashboard?tab=${tab.key}`}
                 key={tab.key}
@@ -216,11 +216,11 @@ function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
           })}
         </div>
       </div>
-      <div className="rounded-[20px] border border-line bg-surface px-4 py-4">
+      <div className="ui-surface px-4 py-4">
         <p className="text-sm font-semibold text-foreground">
           {OWNER_TAB_ITEMS.find((tab) => tab.key === activeTab)?.label}
         </p>
-        <p className="mt-2 text-sm leading-7 text-muted">
+        <p className="mt-1.5 text-sm leading-6 text-muted">
           {OWNER_TAB_ITEMS.find((tab) => tab.key === activeTab)?.description}
         </p>
       </div>
@@ -234,7 +234,7 @@ function StatusChip({ label, tone }: { label: string; tone: "default" | "success
 
 function TableShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-line bg-surface">
+    <div className="ui-surface overflow-hidden">
       <div className="overflow-x-auto">{children}</div>
     </div>
   );
@@ -244,7 +244,7 @@ function InputField({ defaultValue, label, name, placeholder, required, type = "
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <input className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground placeholder:text-muted/70" defaultValue={defaultValue} name={name} placeholder={placeholder} required={required} type={type} />
+      <input className="ui-input placeholder:text-muted/70" defaultValue={defaultValue} name={name} placeholder={placeholder} required={required} type={type} />
     </label>
   );
 }
@@ -253,7 +253,7 @@ function TextareaField({ defaultValue, label, maxLength = 1000, name, placeholde
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <textarea className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-6 text-foreground placeholder:text-muted/70" defaultValue={defaultValue} maxLength={maxLength} name={name} placeholder={placeholder} />
+      <textarea className="ui-textarea placeholder:text-muted/70" defaultValue={defaultValue} maxLength={maxLength} name={name} placeholder={placeholder} />
     </label>
   );
 }
@@ -262,7 +262,7 @@ function SelectField({ defaultValue, label, name, options }: { defaultValue?: st
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <select className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name={name} required>
+      <select className="ui-select" defaultValue={defaultValue} name={name} required>
         <option value="">Pilih karyawan</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>{option.name}</option>
@@ -287,7 +287,7 @@ function MonthSelectField({
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
       <select
-        className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+        className="ui-select"
         defaultValue={defaultValue}
         name={name}
         required
@@ -306,7 +306,7 @@ function JobSelectField({ defaultValue, label = "Pekerjaan" }: { defaultValue?: 
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <select className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name="pekerjaan" required>
+      <select className="ui-select" defaultValue={defaultValue} name="pekerjaan" required>
         <option value="">Pilih pekerjaan</option>
         {JOB_OPTIONS.map((option) => (
           <option key={option.name} value={option.name}>{option.name}</option>
@@ -327,8 +327,8 @@ function ActionButton({
   pendingLabel?: string;
   tone?: "dark" | "light" | "danger" | "success";
 }) {
-  const className = tone === "light" ? "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent" : tone === "danger" ? "bg-warning text-white hover:opacity-90" : tone === "success" ? "bg-success text-white hover:opacity-90" : "bg-foreground text-background hover:bg-foreground/90";
-  return <FormSubmitButton className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} pendingLabel={pendingLabel}>{children}</FormSubmitButton>;
+  const className = tone === "light" ? "ui-button-secondary" : tone === "danger" ? "ui-button-danger" : tone === "success" ? "button-press inline-flex h-11 items-center justify-center rounded-full bg-success px-4 text-sm font-semibold text-white transition hover:opacity-90" : "ui-button-primary";
+  return <FormSubmitButton className={`button-press disabled:cursor-not-allowed disabled:opacity-50 ${className}`} disabled={disabled} pendingLabel={pendingLabel}>{children}</FormSubmitButton>;
 }
 
 function AttendanceTable({ rows, emptyDescription }: { rows: OwnerDashboardData["attendanceToday"] | EmployeeDashboardData["recentAttendance"]; emptyDescription: string }) {

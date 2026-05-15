@@ -24,9 +24,9 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-line bg-surface px-5 py-10 text-center">
+    <div className="ui-surface border-dashed px-5 py-8 text-center">
       <p className="text-lg font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-muted">{description}</p>
+      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>
     </div>
   );
 }
@@ -79,22 +79,22 @@ export function EmployeeAddonPanelClient({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[0.42fr_0.58fr]">
+      <div className="grid gap-4 xl:grid-cols-[0.4fr_0.6fr]">
         <form
           action={handleSubmit}
-          className="grid gap-4 rounded-[24px] border border-line bg-surface p-5"
+          className="ui-surface grid gap-4 p-4 md:p-5"
           ref={formRef}
         >
-          <div className="inline-flex w-fit rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+          <div className="ui-pill w-fit px-3 py-1 text-[0.68rem] tracking-[0.12em]">
             Input add-on {monthLabel}
           </div>
-          <p className="text-sm leading-7 text-muted">
+          <p className="text-sm leading-6 text-muted">
             Tanggal input memakai tanggal hari ini otomatis. Pilih jenis pekerjaan add-on dan jumlahnya, lalu simpan.
           </p>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">Jumlah pekerjaan add-on</span>
             <select
-              className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+              className="ui-select"
               defaultValue="1"
               name="addonQuantity"
               required
@@ -109,7 +109,7 @@ export function EmployeeAddonPanelClient({
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">Jenis pekerjaan add-on</span>
             <select
-              className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+              className="ui-select"
               defaultValue={ADDON_TYPE_OPTIONS[0]?.value}
               name="addonType"
               required
@@ -121,12 +121,12 @@ export function EmployeeAddonPanelClient({
               ))}
             </select>
           </label>
-          <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+          <div className="ui-card px-4 py-4 text-sm leading-6 text-muted">
             Total add-on bulan berjalan: <span className="font-semibold text-foreground">{monthlyTotalQuantity}</span>
           </div>
           <div>
             <button
-              className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="button-press ui-button-primary disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSaving}
               type="submit"
             >
@@ -135,7 +135,7 @@ export function EmployeeAddonPanelClient({
           </div>
         </form>
 
-        <div className="rounded-[24px] border border-line bg-surface p-5">
+        <div className="ui-surface p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-lg font-semibold text-foreground">Riwayat add-on bulan berjalan</p>
@@ -147,7 +147,7 @@ export function EmployeeAddonPanelClient({
           </div>
 
           {feedback ? (
-            <div className="mt-4 rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm leading-7 text-success">
+            <div className="mt-4 rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm leading-6 text-success">
               {feedback}
               {isPending ? " Menyegarkan dashboard..." : null}
             </div>
@@ -162,7 +162,7 @@ export function EmployeeAddonPanelClient({
             ) : (
               <div className="space-y-3">
                 {rows.map((row) => (
-                  <article className="rounded-[20px] border border-line bg-white px-4 py-4" key={row.id}>
+                  <article className="ui-card px-4 py-4" key={row.id}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-foreground">{row.addonTypeLabel}</p>
@@ -170,7 +170,7 @@ export function EmployeeAddonPanelClient({
                           {formatDate(row.addonDate)} • dibuat {formatDateTime(row.createdAt)}
                         </p>
                       </div>
-                      <div className="rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+                      <div className="ui-pill px-3 py-1 text-[0.68rem] tracking-[0.1em]">
                         {row.addonQuantity} add-on
                       </div>
                     </div>

@@ -17,7 +17,7 @@ type SignOutButtonProps = {
 };
 
 export function SignOutButton({
-  className = "button-press inline-flex h-10 items-center justify-center rounded-full bg-foreground px-4 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60",
+  className = "button-press ui-button-primary disabled:cursor-not-allowed disabled:opacity-60",
   label = "Keluar",
   pendingLabel = "Keluar...",
 }: SignOutButtonProps) {

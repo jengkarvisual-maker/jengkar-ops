@@ -71,14 +71,14 @@ function PasswordField({
       <div className="relative">
         <input
           autoComplete="new-password"
-          className="h-12 w-full rounded-2xl border border-line bg-white px-4 pr-28 text-sm text-foreground placeholder:text-muted/70"
+          className="ui-input pr-28 placeholder:text-muted/70"
           disabled={disabled}
           name={name}
           placeholder={placeholder}
           type={showValue ? "text" : "password"}
         />
         <button
-          className="button-press absolute right-2 top-1/2 inline-flex h-8 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-surface px-3 text-xs font-semibold text-foreground hover:border-accent/30 hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="button-press ui-button-secondary absolute right-1.5 top-1/2 h-9 -translate-y-1/2 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
           disabled={disabled}
           onClick={onToggle}
           type="button"
@@ -133,22 +133,22 @@ function ResetPasswordCard({
   return (
     <form
       action={formAction}
-      className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7"
+      className="ui-panel p-5 md:p-6"
     >
-      <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+      <div className="ui-pill">
         Bantuan Login
       </div>
-      <h2 className="mt-5 font-serif text-3xl text-foreground">Reset password akun tim</h2>
+      <h2 className="mt-4 text-[1.7rem] font-extrabold tracking-[-0.03em] text-foreground">Reset password akun tim</h2>
       <p className="mt-3 text-sm leading-7 text-muted">
         Gunakan fitur ini saat anggota tim lupa password. Password baru langsung berlaku
         untuk login berikutnya.
       </p>
 
-      <div className="mt-6 space-y-4 rounded-[24px] border border-line bg-surface p-5">
+      <div className="ui-surface mt-5 space-y-4 p-4 md:p-5">
         <label className="space-y-2">
           <span className="text-sm font-semibold text-foreground">Pilih akun</span>
           <select
-            className="h-12 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+            className="ui-select"
             disabled={isPending || !isProvisioningReady || resettableUsers.length === 0}
             name="targetUserId"
             required
@@ -210,7 +210,7 @@ function ResetPasswordCard({
         <ActionMessage error={state.error} success={state.success} />
 
         <button
-          className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="button-press ui-button-primary disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isPending || !isProvisioningReady || resettableUsers.length === 0}
           type="submit"
         >
@@ -234,22 +234,22 @@ function KpiLockCard({
     <div className="space-y-6">
       <form
         action={formAction}
-        className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7"
+        className="ui-panel p-5 md:p-6"
       >
-        <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+        <div className="ui-pill">
           Evaluasi KPI
         </div>
-        <h2 className="mt-5 font-serif text-3xl text-foreground">Kunci KPI bulanan</h2>
+        <h2 className="mt-4 text-[1.7rem] font-extrabold tracking-[-0.03em] text-foreground">Kunci KPI bulanan</h2>
         <p className="mt-3 text-sm leading-7 text-muted">
           Setelah owner setuju, bulan yang dikunci tidak akan berubah lagi walaupun ada edit
           absensi atau progres lama.
         </p>
 
-        <div className="mt-6 space-y-4 rounded-[24px] border border-line bg-surface p-5">
+        <div className="ui-surface mt-5 space-y-4 p-4 md:p-5">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">Pilih periode</span>
             <select
-              className="h-12 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+              className="ui-select"
               disabled={isPending || kpiLockOptions.length === 0}
               name="monthKey"
               required
@@ -275,7 +275,7 @@ function KpiLockCard({
           <ActionMessage error={state.error} success={state.success} />
 
           <button
-            className="button-press inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-sm font-semibold text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="button-press ui-button-primary disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isPending || kpiLockOptions.length === 0}
             type="submit"
           >
@@ -291,13 +291,13 @@ function KpiLockCard({
         </div>
       </form>
 
-      <article className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
-        <h3 className="font-serif text-2xl text-foreground">Riwayat KPI terkunci</h3>
+      <article className="ui-panel p-5 md:p-6">
+        <h3 className="text-[1.4rem] font-extrabold tracking-[-0.03em] text-foreground">Riwayat KPI terkunci</h3>
         <p className="mt-2 text-sm leading-7 text-muted">
           Daftar ini membantu owner memastikan periode evaluasi mana saja yang sudah final.
         </p>
 
-        <div className="mt-5 rounded-[24px] border border-line bg-surface p-5">
+        <div className="ui-surface mt-5 p-4 md:p-5">
           {lockedKpiMonths.length > 0 ? (
             <div className="grid gap-3">
               {lockedKpiMonths.map((lockedMonth) => (
@@ -316,7 +316,7 @@ function KpiLockCard({
                   </p>
                   <div className="mt-4">
                     <a
-                      className="button-press inline-flex h-10 items-center justify-center rounded-full border border-line bg-surface px-4 text-sm font-semibold text-foreground transition hover:border-accent/30 hover:text-accent"
+                      className="button-press ui-button-secondary h-10 px-4 text-sm"
                       href={`/api/kpi-locks/export?monthKey=${encodeURIComponent(lockedMonth.key)}`}
                     >
                       Download CSV KPI final

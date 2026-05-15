@@ -1,20 +1,22 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Source_Serif_4, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { PwaRegister } from "@/components/pwa-register";
 
 import "./globals.css";
 
-const fontSans = Space_Grotesk({
+const fontSans = Plus_Jakarta_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
-const fontSerif = Source_Serif_4({
+const fontSerif = Plus_Jakarta_Sans({
   variable: "--font-serif",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const fontMono = IBM_Plex_Mono({

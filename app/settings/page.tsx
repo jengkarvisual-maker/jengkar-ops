@@ -37,17 +37,17 @@ export default async function SettingsPage() {
       user={user}
     >
       <section className="grid gap-6 lg:grid-cols-[0.48fr_0.52fr]">
-        <article className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
-          <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+        <article className="ui-panel p-5 md:p-6">
+          <div className="ui-pill">
             Keamanan
           </div>
-          <h2 className="mt-5 font-serif text-3xl text-foreground">Ubah password akun</h2>
+          <h2 className="mt-4 text-[1.7rem] font-extrabold tracking-[-0.03em] text-foreground">Ubah password akun</h2>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
             Gunakan password yang hanya diketahui oleh pemilik akun. Setelah diperbarui,
             login berikutnya akan memakai password baru.
           </p>
 
-          <div className="mt-6 rounded-[24px] border border-line bg-surface p-5 text-sm leading-7 text-muted">
+          <div className="ui-surface mt-5 p-4 text-sm leading-6 text-muted">
             <p className="font-semibold text-foreground">Panduan singkat</p>
             <p className="mt-2">
               Masukkan password saat ini, lalu buat password baru minimal 8 karakter.
@@ -56,7 +56,7 @@ export default async function SettingsPage() {
           </div>
         </article>
 
-        <div className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
+        <div className="ui-panel p-5 md:p-6">
           <SettingsPasswordForm />
         </div>
       </section>
@@ -80,17 +80,17 @@ export default async function SettingsPage() {
             teamMembers={teamMembers}
           />
 
-          <article className="rounded-[32px] border border-line bg-panel/95 p-6 shadow-[var(--shadow-soft)] backdrop-blur md:p-7">
-            <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+          <article className="ui-panel p-5 md:p-6">
+            <div className="ui-pill">
               Data Maintenance
             </div>
-            <h2 className="mt-5 font-serif text-3xl text-foreground">Pembersihan data periodik</h2>
+            <h2 className="mt-4 text-[1.7rem] font-extrabold tracking-[-0.03em] text-foreground">Pembersihan data periodik</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
               Bagian ini khusus untuk {getRoleLabel(user.role)}. Gunakan preview dulu sebelum
               menghapus data agar database tetap ringan tanpa perlu membatasi aktivitas tim
               harian.
             </p>
-            <div className="mt-6 rounded-[24px] border border-line bg-surface p-5 text-sm leading-7 text-muted">
+            <div className="ui-surface mt-5 p-4 text-sm leading-6 text-muted">
               <p className="font-semibold text-foreground">Prinsip aman</p>
               <p className="mt-2">
                 Hapus hanya data operasional mentah yang sudah tidak dibutuhkan. Untuk backup

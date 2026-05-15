@@ -101,9 +101,9 @@ function StatusChip({ label, tone }: { label: string; tone: "default" | "success
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-[24px] border border-dashed border-line bg-surface px-5 py-10 text-center">
+    <div className="ui-surface border-dashed px-5 py-8 text-center">
       <p className="text-lg font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-2 max-w-2xl text-sm leading-7 text-muted">{description}</p>
+      <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>
     </div>
   );
 }
@@ -119,16 +119,16 @@ function ActionButton({
 }) {
   const className =
     tone === "light"
-      ? "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent"
+      ? "ui-button-secondary"
       : tone === "danger"
-        ? "bg-warning text-white hover:opacity-90"
+        ? "ui-button-danger"
         : tone === "success"
-          ? "bg-success text-white hover:opacity-90"
-          : "bg-foreground text-background hover:bg-foreground/90";
+          ? "inline-flex h-11 items-center justify-center rounded-full bg-success px-4 text-sm font-semibold text-white hover:opacity-90"
+          : "ui-button-primary";
 
   return (
     <button
-      className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`button-press transition disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
       disabled={disabled}
       type="submit"
     >
@@ -151,7 +151,7 @@ function InputField({
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <input className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name={name} type={type} />
+      <input className="ui-input" defaultValue={defaultValue} name={name} type={type} />
     </label>
   );
 }
@@ -193,7 +193,7 @@ function TextareaField({
   return (
     <label className="space-y-2 xl:col-span-3">
       <span className="text-sm font-semibold text-foreground">{label}</span>
-      <textarea className="min-h-24 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm leading-6 text-foreground" defaultValue={defaultValue} maxLength={1000} name={name} />
+      <textarea className="ui-textarea" defaultValue={defaultValue} maxLength={1000} name={name} />
     </label>
   );
 }
@@ -208,7 +208,7 @@ function EmployeeSelectField({
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">Karyawan</span>
-      <select className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name="userId" required>
+      <select className="ui-select" defaultValue={defaultValue} name="userId" required>
         {teamUsers.map((option) => (
           <option key={option.id} value={option.id}>{option.name}</option>
         ))}
@@ -223,7 +223,7 @@ function JobSelectField({ defaultValue }: { defaultValue?: string }) {
   return (
     <label className="space-y-2">
       <span className="text-sm font-semibold text-foreground">Pekerjaan</span>
-      <select className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground" defaultValue={defaultValue} name="pekerjaan" required>
+      <select className="ui-select" defaultValue={defaultValue} name="pekerjaan" required>
         {!hasKnownValue && defaultValue ? <option value={defaultValue}>{defaultValue}</option> : null}
         {JOB_OPTIONS.map((option) => (
           <option key={option.name} value={option.name}>{option.name}</option>
@@ -385,11 +385,11 @@ export function ManagerProgressList({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-line bg-surface p-5">
+      <div className="ui-surface p-4 md:p-5">
         <label className="space-y-2">
           <span className="text-sm font-semibold text-foreground">Pilih karyawan</span>
           <select
-            className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground md:max-w-md"
+            className="ui-select md:max-w-md"
             onChange={(event) => setSelectedUserId(event.target.value)}
             value={selectedUser?.id ?? ""}
           >
@@ -415,7 +415,7 @@ export function ManagerProgressList({
       ) : (
         <div className="grid gap-4">
           {selectedRows.map((row) => (
-            <article className="rounded-[24px] border border-line bg-surface p-5" key={row.id}>
+            <article className="ui-surface p-4 md:p-5" key={row.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-lg font-semibold text-foreground">{row.pekerjaan}</p>
@@ -442,8 +442,8 @@ export function ManagerProgressList({
                 <InputField defaultValue={formatDateInput(row.tanggalRevisi)} label="Tanggal revisi" name="tanggalRevisi" type="date" />
                 <InputField defaultValue={formatDateInput(row.revisiDone)} label="Revisi done" name="revisiDone" type="date" />
                 <TextareaField defaultValue={row.detail ?? ""} label="Detail pekerjaan" name="detail" />
-                <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.isDone} name="isDone" type="checkbox" />Tandai done</label>
-                <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.closing} name="closing" type="checkbox" />Tandai closing</label>
+                <label className="ui-card flex items-center gap-3 px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.isDone} name="isDone" type="checkbox" />Tandai done</label>
+                <label className="ui-card flex items-center gap-3 px-4 py-3 text-sm font-semibold text-foreground"><input defaultChecked={row.closing} name="closing" type="checkbox" />Tandai closing</label>
                 <div className="flex flex-wrap gap-3 xl:col-span-3">
                   <ActionButton disabled={pendingRowId === row.id && pendingAction === "save"}>
                     {pendingRowId === row.id && pendingAction === "save" ? "Menyimpan..." : "Simpan perubahan"}
