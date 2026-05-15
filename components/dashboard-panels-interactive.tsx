@@ -838,8 +838,8 @@ function EmployeeOvertimePanel({ data }: { data: EmployeeDashboardData }) {
           </div>
           <p className="mt-4 text-3xl font-semibold text-foreground">{formatHours(data.overtimeMonthlyTotalHours)}</p>
           <p className="mt-2 text-sm leading-7 text-muted">
-            Jam lembur otomatis dihitung dari check-out setelah pukul 16.00 WIB. Jika check-out
-            sebelum atau tepat 16.00, lembur tetap 0.
+            Jam lembur otomatis baru dihitung jika check-out lewat pukul 17.00 WIB. Saat melewati
+            jam itu, lembur langsung masuk 1 jam lalu berlanjut proporsional per jam berikutnya.
           </p>
         </article>
         <div className="rounded-[24px] border border-line bg-surface p-5">
@@ -850,7 +850,7 @@ function EmployeeOvertimePanel({ data }: { data: EmployeeDashboardData }) {
           <div className="mt-4">
             <OvertimeTable
               rows={data.overtimeRows}
-              emptyDescription="Belum ada hari dengan check-out di atas jam 16.00 WIB pada bulan ini."
+              emptyDescription="Belum ada hari dengan check-out di atas jam 17.00 WIB pada bulan ini."
             />
           </div>
         </div>
@@ -1094,7 +1094,7 @@ function EmployeePanel({ data }: { data: EmployeeDashboardData }) {
         <StatCard description="Waktu pulang terakhir yang tercatat hari ini." label="Check-out" value={data.attendanceToday ? formatDateTime(data.attendanceToday.checkOut) : "-"} />
       </section>
       <CardSection title="Attendance system" description="Bagian ini adalah pusat absensi pribadi Anda untuk hari berjalan."><AttendanceActions data={data} /></CardSection>
-      <CardSection title="Jam lembur otomatis" description="Jam lembur dihitung otomatis dari jam check-out yang lewat pukul 16.00 WIB dan diringkas per bulan berjalan.">
+      <CardSection title="Jam lembur otomatis" description="Jam lembur baru dihitung jika check-out lewat pukul 17.00 WIB, lalu diringkas per bulan berjalan.">
         <EmployeeOvertimePanel data={data} />
       </CardSection>
       <CardSection title="Pekerjaan add-on" description="Karyawan bisa mencatat jumlah pekerjaan add-on harian, lalu melihat riwayat bulan berjalan tanpa membuka halaman lain.">

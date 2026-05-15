@@ -86,8 +86,14 @@ export function calculateOvertimeHours(
     return 0;
   }
 
-  const threshold = getAppTimeOnDate(date, 16, 0, 0);
-  const diffMs = checkOut.getTime() - threshold.getTime();
+  const qualificationThreshold = getAppTimeOnDate(date, 17, 0, 0);
+
+  if (checkOut.getTime() <= qualificationThreshold.getTime()) {
+    return 0;
+  }
+
+  const overtimeBase = getAppTimeOnDate(date, 16, 0, 0);
+  const diffMs = checkOut.getTime() - overtimeBase.getTime();
 
   if (diffMs <= 0) {
     return 0;
