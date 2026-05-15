@@ -8,7 +8,7 @@ import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
-import { getAddonTypeLabel } from "@/lib/work-tracking";
+import { getAddonTypeLabel, isEmployeeAddonStorageUnavailable } from "@/lib/work-tracking";
 import {
   calculateBonusPool,
   getAppDateParts,
@@ -1230,6 +1230,14 @@ export async function saveEmployeeAddonAction(
     };
   } catch (error) {
     console.error("[employee-addon] save failed", error);
+
+    if (isEmployeeAddonStorageUnavailable(error)) {
+      return {
+        ok: false,
+        message:
+          "Fitur add-on belum aktif sepenuhnya di server. Jalankan migration database OPS terlebih dahulu.",
+      };
+    }
 
     return {
       ok: false,

@@ -1,4 +1,4 @@
-import { AddonType, UserRole } from "@prisma/client";
+import { AddonType, Prisma, UserRole } from "@prisma/client";
 
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +29,22 @@ export const ADDON_TYPE_OPTIONS = (Object.entries(ADDON_TYPE_LABELS) as Array<
 
 export function getAddonTypeLabel(type: AddonType) {
   return ADDON_TYPE_LABELS[type];
+}
+
+export function isEmployeeAddonStorageUnavailable(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === "P2021" || error.code === "P2022";
+  }
+
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    return error.message.includes("EmployeeAddon") || error.message.includes("employeeAddon");
+  }
+
+  return false;
 }
 
 export function buildRecentMonthOptions(count = 12, anchor = new Date()): DashboardMonthOption[] {
@@ -165,31 +181,53 @@ export async function getMonthlyAddonSummary(input: {
   userId?: string;
 }) {
   const { start, end } = getMonthBounds(input.year, input.month);
-  const addonRows = await prisma.employeeAddon.findMany({
-    where: {
-      addonDate: {
-        gte: start,
-        lt: end,
+  let addonRows: Array<{
+    id: string;
+    userId: string;
+    addonDate: Date;
+    addonType: AddonType;
+    addonQuantity: number;
+    createdAt: Date;
+    updatedAt: Date;
+    user: {
+      name: string;
+      email: string;
+    };
+  }> = [];
+
+  try {
+    addonRows = await prisma.employeeAddon.findMany({
+      where: {
+        addonDate: {
+          gte: start,
+          lt: end,
+        },
+        user: buildEmployeeWhere(input.userId),
       },
-      user: buildEmployeeWhere(input.userId),
-    },
-    select: {
-      id: true,
-      userId: true,
-      addonDate: true,
-      addonType: true,
-      addonQuantity: true,
-      createdAt: true,
-      updatedAt: true,
-      user: {
-        select: {
-          name: true,
-          email: true,
+      select: {
+        id: true,
+        userId: true,
+        addonDate: true,
+        addonType: true,
+        addonQuantity: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
         },
       },
-    },
-    orderBy: [{ addonDate: "desc" }, { createdAt: "desc" }, { user: { name: "asc" } }],
-  });
+      orderBy: [{ addonDate: "desc" }, { createdAt: "desc" }, { user: { name: "asc" } }],
+    });
+  } catch (error) {
+    if (!isEmployeeAddonStorageUnavailable(error)) {
+      throw error;
+    }
+
+    console.warn("[employee-addon] storage unavailable, returning empty summary");
+  }
 
   const monthlyTotals = addonRows.reduce<Map<string, number>>((map, row) => {
     map.set(row.userId, (map.get(row.userId) ?? 0) + row.addonQuantity);
