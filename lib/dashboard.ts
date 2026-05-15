@@ -27,6 +27,7 @@ import type {
   LockedKpiSelection,
   LockedKpiMonthItem,
   MonthlyKpiItem,
+  OwnerDashboardTab,
   OwnerStopCardItem,
   OwnerDashboardData,
   ProgressItem,
@@ -422,7 +423,59 @@ async function getAssignableUsers() {
   });
 }
 
+function createEmptyOwnerDashboardData(
+  now: Date,
+  activeTab: OwnerDashboardTab,
+): OwnerDashboardData {
+  const { month: currentMonth, year: currentYear } = getAppDateParts(now);
+
+  return {
+    activeTab,
+    teamSize: 0,
+    teamUsers: [],
+    monthlyKpiPeriodLabel: formatMonthYear(currentMonth, currentYear),
+    monthlyKpiIsFinal: false,
+    lockedKpiMonthOptions: [],
+    selectedLockedKpiMonth: null,
+    selectedLockedMonthlyKpis: [],
+    attendanceToday: [],
+    attendanceSummary: {
+      onTime: 0,
+      late: 0,
+      off: 0,
+    },
+    recentProgress: [],
+    completedProgressRows: [],
+    completedProgressCount: 0,
+    openProgressCount: 0,
+    monthlyKpis: [],
+    yearlyKpis: [],
+    lockedKpiMonths: [],
+    stopCards: [],
+    bonusPreview: [],
+    simulationMonthOptions: [],
+    simulationStartMonthKey: "",
+    simulationEndMonthKey: "",
+    simulationAmount: 0,
+    simulationIsFullyLocked: false,
+    simulationPeriodLabel: "Belum ada periode KPI",
+    simulationRows: [],
+    activeFinanceYear: currentYear,
+    monitoringMonthOptions: [],
+    selectedMonitoringMonthKey: "",
+    selectedMonitoringMonthLabel: "",
+    selectedMonitoringUserId: "",
+    selectedMonitoringUserName: null,
+    overtimeRows: [],
+    overtimeMonthlyTotalHours: 0,
+    addonRows: [],
+    addonMonthlyTotalQuantity: 0,
+    finance: null,
+  };
+}
+
 async function buildOwnerDashboardData(input?: {
+  tab?: OwnerDashboardTab;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
   monitoringUserId?: string;
@@ -434,187 +487,242 @@ async function buildOwnerDashboardData(input?: {
   const todayStart = startOfDay(now);
   const tomorrowStart = addDays(todayStart, 1);
   const { month: currentMonth, year: currentYear } = getAppDateParts(now);
+  const activeTab = input?.tab ?? "daily";
+  const baseData = createEmptyOwnerDashboardData(now, activeTab);
 
-  const [
-    teamSize,
-    teamUsers,
-    attendanceRows,
-    progressRows,
-    completedProgressRows,
-    completedProgressCount,
-    openProgressCount,
-    monthlyRows,
-    yearlyRows,
-    allMonthlyPeriodRows,
-    lockedKpiRows,
-    stopCardRows,
-    finance,
-  ] = await Promise.all([
-    prisma.user.count(),
-    getAssignableUsers(),
-    prisma.attendance.findMany({
-      where: {
-        date: {
-          gte: todayStart,
-          lt: tomorrowStart,
-        },
-      },
-      select: attendanceRowSelect,
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
-    prisma.dailyProgress.findMany({
-      where: {
-        closing: false,
-        canceledAt: null,
-      },
-      select: progressRowSelect,
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
-    prisma.dailyProgress.findMany({
-      where: {
-        closing: true,
-        hiddenFromDashboard: false,
-        canceledAt: null,
-      },
-      select: progressRowSelect,
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 6,
-    }),
-    prisma.dailyProgress.count({
-      where: {
-        closing: true,
-        hiddenFromDashboard: false,
-        canceledAt: null,
-      },
-    }),
-    prisma.dailyProgress.count({
-      where: {
-        closing: false,
-        canceledAt: null,
-      },
-    }),
-    prisma.kpiMonthly.findMany({
-      where: {
-        year: currentYear,
-        month: currentMonth,
-        user: {
-          role: UserRole.KARYAWAN,
-          email: {
-            notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+  if (activeTab === "daily") {
+    const [
+      teamSize,
+      teamUsers,
+      attendanceRows,
+      progressRows,
+      completedProgressRows,
+      completedProgressCount,
+      openProgressCount,
+      stopCardRows,
+      finance,
+    ] = await Promise.all([
+      prisma.user.count(),
+      getAssignableUsers(),
+      prisma.attendance.findMany({
+        where: {
+          date: {
+            gte: todayStart,
+            lt: tomorrowStart,
           },
         },
-      },
-      select: monthlyKpiRowSelect,
-      orderBy: {
-        totalScore: "desc",
-      },
-      take: 12,
-    }),
-    prisma.kpiYearly.findMany({
-      where: {
-        year: currentYear,
-        user: {
-          role: UserRole.KARYAWAN,
-          email: {
-            notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-          },
+        select: attendanceRowSelect,
+        orderBy: {
+          createdAt: "desc",
         },
-      },
-      select: yearlyKpiRowSelect,
-      orderBy: {
-        avgScore: "desc",
-      },
-      take: 12,
-    }),
-    prisma.kpiMonthly.findMany({
-      where: {
-        user: {
-          role: UserRole.KARYAWAN,
-          email: {
-            notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-          },
+      }),
+      prisma.dailyProgress.findMany({
+        where: {
+          closing: false,
+          canceledAt: null,
         },
-      },
-      distinct: ["year", "month"],
-      select: {
-        year: true,
-        month: true,
-      },
-      orderBy: [
-        {
+        select: progressRowSelect,
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.dailyProgress.findMany({
+        where: {
+          closing: true,
+          hiddenFromDashboard: false,
+          canceledAt: null,
+        },
+        select: progressRowSelect,
+        orderBy: {
+          updatedAt: "desc",
+        },
+        take: 6,
+      }),
+      prisma.dailyProgress.count({
+        where: {
+          closing: true,
+          hiddenFromDashboard: false,
+          canceledAt: null,
+        },
+      }),
+      prisma.dailyProgress.count({
+        where: {
+          closing: false,
+          canceledAt: null,
+        },
+      }),
+      prisma.stopCard.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 8,
+        select: stopCardRowSelect,
+      }),
+      prisma.companyFinance.findFirst({
+        orderBy: {
           year: "desc",
         },
-        {
-          month: "desc",
+        select: {
+          year: true,
+          netProfit: true,
+          bonusPool: true,
         },
-      ],
-    }),
-    prisma.kpiMonthLock.findMany({
-      include: {
-        lockedBy: {
-          select: {
-            name: true,
+      }),
+    ]);
+
+    const attendanceToday = mapAttendanceRows(attendanceRows);
+
+    return {
+      ...baseData,
+      teamSize,
+      teamUsers,
+      attendanceToday,
+      attendanceSummary: summarizeAttendance(attendanceToday),
+      recentProgress: mapProgressRows(progressRows),
+      completedProgressRows: mapProgressRows(completedProgressRows),
+      completedProgressCount,
+      openProgressCount,
+      stopCards: mapOwnerStopCards(stopCardRows),
+      activeFinanceYear: finance?.year ?? currentYear,
+      finance: finance
+        ? {
+            year: finance.year,
+            netProfit: finance.netProfit,
+            bonusPool: finance.bonusPool,
+          }
+        : null,
+    };
+  }
+
+  if (activeTab === "addon") {
+    const teamUsers = await getAssignableUsers();
+    const monitoringMonthOptions = buildRecentMonthOptions(12, now);
+    const selectedMonitoringMonth =
+      findMonthOption(monitoringMonthOptions, input?.monitoringMonthKey) ??
+      monitoringMonthOptions[0];
+    const selectedMonitoringUser =
+      input?.monitoringUserId && teamUsers.some((teamUser) => teamUser.id === input.monitoringUserId)
+        ? teamUsers.find((teamUser) => teamUser.id === input.monitoringUserId) ?? null
+        : null;
+    const [overtimeSummary, addonSummary] = await Promise.all([
+      getMonthlyOvertimeSummary({
+        year: selectedMonitoringMonth.year,
+        month: selectedMonitoringMonth.month,
+        userId: selectedMonitoringUser?.id,
+      }),
+      getMonthlyAddonSummary({
+        year: selectedMonitoringMonth.year,
+        month: selectedMonitoringMonth.month,
+        userId: selectedMonitoringUser?.id,
+      }),
+    ]);
+
+    return {
+      ...baseData,
+      teamUsers,
+      monitoringMonthOptions,
+      selectedMonitoringMonthKey: selectedMonitoringMonth.key,
+      selectedMonitoringMonthLabel: selectedMonitoringMonth.label,
+      selectedMonitoringUserId: selectedMonitoringUser?.id ?? "",
+      selectedMonitoringUserName: selectedMonitoringUser?.name ?? null,
+      overtimeRows: overtimeSummary.rows,
+      overtimeMonthlyTotalHours: overtimeSummary.totalHours,
+      addonRows: addonSummary.rows,
+      addonMonthlyTotalQuantity: addonSummary.totalQuantity,
+    };
+  }
+
+  const [teamUsers, monthlyRows, yearlyRows, allMonthlyPeriodRows, lockedKpiRows, finance] =
+    await Promise.all([
+      getAssignableUsers(),
+      prisma.kpiMonthly.findMany({
+        where: {
+          year: currentYear,
+          month: currentMonth,
+          user: {
+            role: UserRole.KARYAWAN,
+            email: {
+              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+            },
           },
         },
-      },
-      orderBy: [
-        {
+        select: monthlyKpiRowSelect,
+        orderBy: {
+          totalScore: "desc",
+        },
+        take: 12,
+      }),
+      prisma.kpiYearly.findMany({
+        where: {
+          year: currentYear,
+          user: {
+            role: UserRole.KARYAWAN,
+            email: {
+              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+            },
+          },
+        },
+        select: yearlyKpiRowSelect,
+        orderBy: {
+          avgScore: "desc",
+        },
+        take: 12,
+      }),
+      prisma.kpiMonthly.findMany({
+        where: {
+          user: {
+            role: UserRole.KARYAWAN,
+            email: {
+              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+            },
+          },
+        },
+        distinct: ["year", "month"],
+        select: {
+          year: true,
+          month: true,
+        },
+        orderBy: [
+          {
+            year: "desc",
+          },
+          {
+            month: "desc",
+          },
+        ],
+      }),
+      prisma.kpiMonthLock.findMany({
+        include: {
+          lockedBy: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: [
+          {
+            year: "desc",
+          },
+          {
+            month: "desc",
+          },
+        ],
+        take: 6,
+      }),
+      prisma.companyFinance.findFirst({
+        orderBy: {
           year: "desc",
         },
-        {
-          month: "desc",
+        select: {
+          year: true,
+          netProfit: true,
+          bonusPool: true,
         },
-      ],
-      take: 6,
-    }),
-    prisma.stopCard.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 8,
-      select: stopCardRowSelect,
-    }),
-    prisma.companyFinance.findFirst({
-      orderBy: {
-        year: "desc",
-      },
-      select: {
-        year: true,
-        netProfit: true,
-        bonusPool: true,
-      },
-    }),
-  ]);
+      }),
+    ]);
 
-  const attendanceToday = mapAttendanceRows(attendanceRows);
   const monthlyKpis = sortMonthlyKpisAlphabetically(mapMonthlyKpis(monthlyRows));
   const yearlyKpis = mapYearlyKpis(yearlyRows);
-  const monitoringMonthOptions = buildRecentMonthOptions(12, now);
-  const selectedMonitoringMonth =
-    findMonthOption(monitoringMonthOptions, input?.monitoringMonthKey) ??
-    monitoringMonthOptions[0];
-  const selectedMonitoringUser =
-    input?.monitoringUserId && teamUsers.some((teamUser) => teamUser.id === input.monitoringUserId)
-      ? teamUsers.find((teamUser) => teamUser.id === input.monitoringUserId) ?? null
-      : null;
-  const [overtimeSummary, addonSummary] = await Promise.all([
-    getMonthlyOvertimeSummary({
-      year: selectedMonitoringMonth.year,
-      month: selectedMonitoringMonth.month,
-      userId: selectedMonitoringUser?.id,
-    }),
-    getMonthlyAddonSummary({
-      year: selectedMonitoringMonth.year,
-      month: selectedMonitoringMonth.month,
-      userId: selectedMonitoringUser?.id,
-    }),
-  ]);
   const bonusPool = finance?.bonusPool ?? 0;
   const eligibleKpis = yearlyKpis.filter((row) => row.avgScore >= 70);
   const totalEligibleKpi = eligibleKpis.reduce((sum, row) => sum + row.avgScore, 0);
@@ -730,7 +838,9 @@ async function buildOwnerDashboardData(input?: {
   const simulationItems = teamUsers.map<BonusSimulationItem>((user) => {
     const summary = userKpiMap.get(user.id);
     const averageScore =
-      summary && summary.monthsCount > 0 ? Number((summary.totalScore / summary.monthsCount).toFixed(2)) : 0;
+      summary && summary.monthsCount > 0
+        ? Number((summary.totalScore / summary.monthsCount).toFixed(2))
+        : 0;
 
     return {
       userId: user.id,
@@ -763,32 +873,28 @@ async function buildOwnerDashboardData(input?: {
     });
 
   return {
-    teamSize,
+    ...baseData,
     teamUsers,
     monthlyKpiPeriodLabel: formatMonthYear(currentMonth, currentYear),
     monthlyKpiIsFinal: lockedKpiRows.some(
       (row) => row.year === currentYear && row.month === currentMonth,
     ),
     lockedKpiMonthOptions,
-    selectedLockedKpiMonth: selectedLockedMonth && selectedLockedMonthMeta
-      ? ({
-          key: selectedLockedMonth.key,
-          label: selectedLockedMonth.label,
-          lockedAt: selectedLockedMonthMeta.lockedAt,
-          lockedByName: selectedLockedMonthMeta.lockedBy.name,
-        } satisfies LockedKpiSelection)
-      : null,
-    selectedLockedMonthlyKpis: sortMonthlyKpisAlphabetically(mapMonthlyKpis(selectedLockedMonthlyRows)),
-    attendanceToday,
-    attendanceSummary: summarizeAttendance(attendanceToday),
-    recentProgress: mapProgressRows(progressRows),
-    completedProgressRows: mapProgressRows(completedProgressRows),
-    completedProgressCount,
-    openProgressCount,
+    selectedLockedKpiMonth:
+      selectedLockedMonth && selectedLockedMonthMeta
+        ? ({
+            key: selectedLockedMonth.key,
+            label: selectedLockedMonth.label,
+            lockedAt: selectedLockedMonthMeta.lockedAt,
+            lockedByName: selectedLockedMonthMeta.lockedBy.name,
+          } satisfies LockedKpiSelection)
+        : null,
+    selectedLockedMonthlyKpis: sortMonthlyKpisAlphabetically(
+      mapMonthlyKpis(selectedLockedMonthlyRows),
+    ),
     monthlyKpis,
     yearlyKpis,
     lockedKpiMonths: mapLockedKpiMonths(lockedKpiRows),
-    stopCards: mapOwnerStopCards(stopCardRows),
     bonusPreview: eligibleKpis
       .map((row) => ({
         userId: row.userId,
@@ -812,15 +918,6 @@ async function buildOwnerDashboardData(input?: {
         : "Belum ada periode KPI",
     simulationRows,
     activeFinanceYear: finance?.year ?? currentYear,
-    monitoringMonthOptions,
-    selectedMonitoringMonthKey: selectedMonitoringMonth.key,
-    selectedMonitoringMonthLabel: selectedMonitoringMonth.label,
-    selectedMonitoringUserId: selectedMonitoringUser?.id ?? "",
-    selectedMonitoringUserName: selectedMonitoringUser?.name ?? null,
-    overtimeRows: overtimeSummary.rows,
-    overtimeMonthlyTotalHours: overtimeSummary.totalHours,
-    addonRows: addonSummary.rows,
-    addonMonthlyTotalQuantity: addonSummary.totalQuantity,
     finance: finance
       ? {
           year: finance.year,
@@ -832,6 +929,7 @@ async function buildOwnerDashboardData(input?: {
 }
 
 export async function getOwnerDashboardData(input?: {
+  tab?: OwnerDashboardTab;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
   monitoringUserId?: string;

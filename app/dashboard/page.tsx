@@ -9,6 +9,7 @@ import {
   getEmployeeDashboardData,
   getOwnerDashboardData,
 } from "@/lib/dashboard";
+import type { OwnerDashboardTab } from "@/types/dashboard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -44,13 +45,22 @@ function readSingleParam(
   return typeof value === "string" ? value : undefined;
 }
 
+function readOwnerDashboardTab(
+  searchParams: Record<string, string | string[] | undefined> | undefined,
+): OwnerDashboardTab {
+  const value = readSingleParam(searchParams, "tab");
+  return value === "addon" || value === "kpi" ? value : "daily";
+}
+
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await requireAuthenticatedUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const feedback = readFeedback(resolvedSearchParams);
 
   if (user.role === UserRole.OWNER) {
+    const activeTab = readOwnerDashboardTab(resolvedSearchParams);
     const data = await getOwnerDashboardData({
+      tab: activeTab,
       lockedMonthKey: readSingleParam(resolvedSearchParams, "lockedMonth"),
       monitoringMonthKey: readSingleParam(resolvedSearchParams, "trackingMonth"),
       monitoringUserId: readSingleParam(resolvedSearchParams, "trackingUser"),

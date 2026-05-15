@@ -19,6 +19,7 @@ import {
 } from "@/lib/utils";
 
 type FeedbackType = "success" | "error";
+type DashboardTab = "daily" | "addon" | "kpi";
 const OPS_DASHBOARD_TAG = "ops-dashboard";
 
 export type HideCompletedProgressResult =
@@ -184,12 +185,21 @@ function serializeManagerProgressRow(row: {
   };
 }
 
-function redirectWithFeedback(type: FeedbackType, message: string): never {
+function parseDashboardTabValue(value: FormDataEntryValue | null | undefined): DashboardTab | null {
+  const normalized = String(value ?? "").trim();
+  return normalized === "addon" || normalized === "kpi" ? normalized : normalized === "daily" ? normalized : null;
+}
+
+function redirectWithFeedback(type: FeedbackType, message: string, tab?: DashboardTab | null): never {
   const params = new URLSearchParams({
     feedbackType: type,
     feedbackMessage: message,
     feedbackAt: Date.now().toString(),
   });
+
+  if (tab) {
+    params.set("tab", tab);
+  }
 
   redirect(`/dashboard?${params.toString()}`);
 }
@@ -472,9 +482,10 @@ export async function submitStopCardAction(formData: FormData) {
 
 export async function updateStopCardStatusAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (user.role !== UserRole.OWNER) {
-    redirectWithFeedback("error", "Hanya Owner yang bisa memperbarui status STOP CARD.");
+    redirectWithFeedback("error", "Hanya Owner yang bisa memperbarui status STOP CARD.", dashboardTab);
   }
 
   const stopCardId = parseRequiredString(formData.get("stopCardId"), "ID STOP CARD");
@@ -490,7 +501,7 @@ export async function updateStopCardStatusAction(formData: FormData) {
   });
 
   if (!existing) {
-    redirectWithFeedback("error", "STOP CARD tidak ditemukan.");
+    redirectWithFeedback("error", "STOP CARD tidak ditemukan.", dashboardTab);
   }
 
   await prisma.stopCard.update({
@@ -503,14 +514,15 @@ export async function updateStopCardStatusAction(formData: FormData) {
   });
 
   refreshDashboard();
-  redirectWithFeedback("success", "Status STOP CARD berhasil diperbarui.");
+  redirectWithFeedback("success", "Status STOP CARD berhasil diperbarui.", dashboardTab);
 }
 
 export async function createProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageProgress(user.role)) {
-    redirectWithFeedback("error", "Hanya Owner atau Admin yang bisa membuat progres baru.");
+    redirectWithFeedback("error", "Hanya Owner atau Admin yang bisa membuat progres baru.", dashboardTab);
   }
 
   const pekerjaan = parseJobName(formData.get("pekerjaan"));
@@ -520,7 +532,7 @@ export async function createProgressAction(formData: FormData) {
   const tanggalMulai = parseDateInput(formData.get("tanggalMulai"));
 
   if (!targetSelesai || !tanggalMulai) {
-    redirectWithFeedback("error", "Tanggal mulai dan target selesai wajib diisi.");
+    redirectWithFeedback("error", "Tanggal mulai dan target selesai wajib diisi.", dashboardTab);
   }
 
   await ensureAssignableUser(userId);
@@ -543,14 +555,15 @@ export async function createProgressAction(formData: FormData) {
     progress.tanggalMulai,
   ]);
   refreshDashboard();
-  redirectWithFeedback("success", "Progres baru berhasil ditambahkan.");
+  redirectWithFeedback("success", "Progres baru berhasil ditambahkan.", dashboardTab);
 }
 
 export async function updateManagerProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageProgress(user.role)) {
-    redirectWithFeedback("error", "Anda tidak memiliki izin untuk mengubah progres ini.");
+    redirectWithFeedback("error", "Anda tidak memiliki izin untuk mengubah progres ini.", dashboardTab);
   }
 
   const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
@@ -565,11 +578,11 @@ export async function updateManagerProgressAction(formData: FormData) {
   });
 
   if (!progress) {
-    redirectWithFeedback("error", "Baris progres tidak ditemukan.");
+    redirectWithFeedback("error", "Baris progres tidak ditemukan.", dashboardTab);
   }
 
   if (progress.canceledAt) {
-    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa diubah.");
+    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa diubah.", dashboardTab);
   }
 
   await ensureAssignableUser(userId);
@@ -627,7 +640,7 @@ export async function updateManagerProgressAction(formData: FormData) {
 
   await syncUserKpisForDates(updated.userId, affectedDates);
   refreshDashboard();
-  redirectWithFeedback("success", "Progres berhasil diperbarui.");
+  redirectWithFeedback("success", "Progres berhasil diperbarui.", dashboardTab);
 }
 
 export async function updateManagerProgressInlineAction(
@@ -777,9 +790,10 @@ export async function updateManagerProgressInlineAction(
 
 export async function closeProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageProgress(user.role)) {
-    redirectWithFeedback("error", "Anda tidak memiliki izin untuk menutup progres.");
+    redirectWithFeedback("error", "Anda tidak memiliki izin untuk menutup progres.", dashboardTab);
   }
 
   const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
@@ -790,11 +804,11 @@ export async function closeProgressAction(formData: FormData) {
   });
 
   if (!progress) {
-    redirectWithFeedback("error", "Baris progres tidak ditemukan.");
+    redirectWithFeedback("error", "Baris progres tidak ditemukan.", dashboardTab);
   }
 
   if (progress.canceledAt) {
-    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa di-closing.");
+    redirectWithFeedback("error", "Pekerjaan yang sudah dibatalkan tidak bisa di-closing.", dashboardTab);
   }
 
   const updated = await prisma.dailyProgress.update({
@@ -818,7 +832,7 @@ export async function closeProgressAction(formData: FormData) {
     updated.tanggalSelesai,
   ]);
   refreshDashboard();
-  redirectWithFeedback("success", "Progres berhasil dipindahkan ke daftar completed.");
+  redirectWithFeedback("success", "Progres berhasil dipindahkan ke daftar completed.", dashboardTab);
 }
 
 export async function closeProgressInlineAction(
@@ -900,9 +914,10 @@ export async function closeProgressInlineAction(
 
 export async function cancelProgressAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageProgress(user.role)) {
-    redirectWithFeedback("error", "Anda tidak memiliki izin untuk membatalkan progres.");
+    redirectWithFeedback("error", "Anda tidak memiliki izin untuk membatalkan progres.", dashboardTab);
   }
 
   const progressId = parseRequiredString(formData.get("progressId"), "ID progres");
@@ -913,15 +928,15 @@ export async function cancelProgressAction(formData: FormData) {
   });
 
   if (!progress) {
-    redirectWithFeedback("error", "Baris progres tidak ditemukan.");
+    redirectWithFeedback("error", "Baris progres tidak ditemukan.", dashboardTab);
   }
 
   if (progress.closing) {
-    redirectWithFeedback("error", "Pekerjaan yang sudah closing tidak bisa dibatalkan.");
+    redirectWithFeedback("error", "Pekerjaan yang sudah closing tidak bisa dibatalkan.", dashboardTab);
   }
 
   if (progress.canceledAt) {
-    redirectWithFeedback("error", "Pekerjaan ini sudah dibatalkan.");
+    redirectWithFeedback("error", "Pekerjaan ini sudah dibatalkan.", dashboardTab);
   }
 
   const updated = await prisma.dailyProgress.update({
@@ -948,6 +963,7 @@ export async function cancelProgressAction(formData: FormData) {
   redirectWithFeedback(
     "success",
     "Pekerjaan berhasil dibatalkan dan tidak ikut masuk penilaian KPI.",
+    dashboardTab,
   );
 }
 
@@ -1248,9 +1264,10 @@ export async function saveEmployeeAddonAction(
 
 export async function saveFinanceAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageFinance(user.role)) {
-    redirectWithFeedback("error", "Hanya Owner yang bisa mengubah data finance.");
+    redirectWithFeedback("error", "Hanya Owner yang bisa mengubah data finance.", dashboardTab);
   }
 
   const year = parseYear(formData.get("year"));
@@ -1273,18 +1290,19 @@ export async function saveFinanceAction(formData: FormData) {
   });
 
   refreshDashboard();
-  redirectWithFeedback("success", "Data finance tahunan berhasil diperbarui.");
+  redirectWithFeedback("success", "Data finance tahunan berhasil diperbarui.", dashboardTab);
 }
 
-export async function syncCurrentMonthKpiAction() {
+export async function syncCurrentMonthKpiAction(formData: FormData) {
   const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
 
   if (!canManageProgress(user.role)) {
-    redirectWithFeedback("error", "Anda tidak memiliki izin untuk menyinkronkan KPI.");
+    redirectWithFeedback("error", "Anda tidak memiliki izin untuk menyinkronkan KPI.", dashboardTab);
   }
 
   const { year, month } = getAppDateParts(new Date());
   await syncAllKpisForMonth(year, month);
   refreshDashboard();
-  redirectWithFeedback("success", "Sinkron KPI bulan berjalan selesai dijalankan.");
+  redirectWithFeedback("success", "Sinkron KPI bulan berjalan selesai dijalankan.", dashboardTab);
 }

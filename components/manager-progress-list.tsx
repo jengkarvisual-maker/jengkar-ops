@@ -236,9 +236,11 @@ function JobSelectField({ defaultValue }: { defaultValue?: string }) {
 export function ManagerProgressList({
   rows,
   teamUsers,
+  dashboardTab = "daily",
 }: {
   rows: ManagerProgressItem[];
   teamUsers: DashboardUser[];
+  dashboardTab?: "daily" | "addon" | "kpi";
 }) {
   const router = useRouter();
   const [localRows, setLocalRows] = useState(rows);
@@ -431,6 +433,7 @@ export function ManagerProgressList({
                 onSubmit={(event) => void handleSave(event, row.id)}
               >
                 <input name="progressId" type="hidden" value={row.id} />
+                <input name="dashboardTab" type="hidden" value={dashboardTab} />
                 <JobSelectField defaultValue={row.pekerjaan} />
                 <EmployeeSelectField defaultValue={row.userId} teamUsers={teamUsers} />
                 <LockedDateField defaultValue={formatDateInput(row.targetSelesai)} label="Target selesai" locked={Boolean(row.targetSelesai)} name="targetSelesai" />
@@ -456,6 +459,7 @@ export function ManagerProgressList({
                   }}
                 >
                   <input name="progressId" type="hidden" value={row.id} />
+                  <input name="dashboardTab" type="hidden" value={dashboardTab} />
                   <ActionButton
                     disabled={pendingRowId === row.id && pendingAction === "close"}
                     tone="success"
@@ -472,6 +476,7 @@ export function ManagerProgressList({
                   }}
                 >
                   <input name="progressId" type="hidden" value={row.id} />
+                  <input name="dashboardTab" type="hidden" value={dashboardTab} />
                   <ActionButton tone="danger">Batalkan pekerjaan</ActionButton>
                 </form>
               </div>

@@ -93,6 +93,8 @@ export type DashboardMonthOption = {
   month: number;
 };
 
+export type OwnerDashboardTab = "daily" | "addon" | "kpi";
+
 export type LockedKpiSelection = {
   key: string;
   label: string;
@@ -134,6 +136,7 @@ export type EmployeeAddonItem = {
 };
 
 export type OwnerDashboardData = {
+  activeTab: OwnerDashboardTab;
   teamSize: number;
   teamUsers: DashboardUser[];
   monthlyKpiPeriodLabel: string;

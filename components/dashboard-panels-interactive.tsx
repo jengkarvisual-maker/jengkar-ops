@@ -33,6 +33,7 @@ import type {
   DashboardUser,
   EmployeeDashboardData,
   OwnerDashboardData,
+  OwnerDashboardTab,
   ProgressItem,
 } from "@/types/dashboard";
 
@@ -159,6 +160,72 @@ function serializeAddonRows(
     createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
     updatedAt: toIsoDateValue(row.updatedAt) ?? new Date().toISOString(),
   }));
+}
+
+const OWNER_TAB_ITEMS: Array<{
+  key: OwnerDashboardTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "daily",
+    label: "Daily",
+    description: "Aksi harian owner, absensi, progress aktif, recap closing, dan STOP CARD.",
+  },
+  {
+    key: "addon",
+    label: "Add On",
+    description: "Monitoring jam lembur dan pekerjaan add-on tim berdasarkan bulan dan karyawan.",
+  },
+  {
+    key: "kpi",
+    label: "KPI",
+    description: "Status KPI final, nilai final, KPI tim, bonus, dan simulasi uang per karyawan.",
+  },
+];
+
+function OwnerDashboardTabField({ value }: { value: OwnerDashboardTab }) {
+  return <input name="dashboardTab" type="hidden" value={value} />;
+}
+
+function DashboardTabQueryField({ value }: { value: OwnerDashboardTab }) {
+  return <input name="tab" type="hidden" value={value} />;
+}
+
+function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
+  return (
+    <div className="space-y-3 rounded-[24px] border border-line bg-panel/95 p-4 shadow-[var(--shadow-soft)] backdrop-blur md:p-5">
+      <div className="overflow-x-auto">
+        <div className="inline-flex min-w-max gap-2">
+          {OWNER_TAB_ITEMS.map((tab) => {
+            const isActive = tab.key === activeTab;
+
+            return (
+              <Link
+                className={`button-press inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                  isActive
+                    ? "bg-foreground text-background"
+                    : "border border-line bg-white text-foreground hover:border-accent/25 hover:text-accent"
+                }`}
+                href={`/dashboard?tab=${tab.key}`}
+                key={tab.key}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+      <div className="rounded-[20px] border border-line bg-surface px-4 py-4">
+        <p className="text-sm font-semibold text-foreground">
+          {OWNER_TAB_ITEMS.find((tab) => tab.key === activeTab)?.label}
+        </p>
+        <p className="mt-2 text-sm leading-7 text-muted">
+          {OWNER_TAB_ITEMS.find((tab) => tab.key === activeTab)?.description}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function StatusChip({ label, tone }: { label: string; tone: "default" | "success" | "warning" | "pending" }) {
@@ -374,17 +441,6 @@ function AddonTable({
   );
 }
 
-function MonitoringFiltersHiddenFields({ data }: { data: OwnerDashboardData }) {
-  return (
-    <>
-      <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
-      <input name="simStart" type="hidden" value={data.simulationStartMonthKey} />
-      <input name="simEnd" type="hidden" value={data.simulationEndMonthKey} />
-      <input name="simAmount" type="hidden" value={String(data.simulationAmount)} />
-    </>
-  );
-}
-
 function MonitoringFilterForm({ data }: { data: OwnerDashboardData }) {
   const exportHref = `/api/work-tracking/export?monthKey=${encodeURIComponent(
     data.selectedMonitoringMonthKey,
@@ -430,7 +486,7 @@ function MonitoringFilterForm({ data }: { data: OwnerDashboardData }) {
           Export CSV
         </a>
       </div>
-      <MonitoringFiltersHiddenFields data={data} />
+      <DashboardTabQueryField value="addon" />
     </form>
   );
 }
@@ -505,9 +561,16 @@ function AttendanceActions({ data }: { data: EmployeeDashboardData }) {
   );
 }
 
-function CreateProgressForm({ teamUsers }: { teamUsers: DashboardUser[] }) {
+function CreateProgressForm({
+  teamUsers,
+  dashboardTab = "daily",
+}: {
+  teamUsers: DashboardUser[];
+  dashboardTab?: OwnerDashboardTab;
+}) {
   return (
     <form action={createProgressAction} className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-4">
+      <OwnerDashboardTabField value={dashboardTab} />
       <JobSelectField />
       <SelectField label="Nama karyawan" name="userId" options={teamUsers} />
       <InputField label="Tanggal mulai" name="tanggalMulai" required type="date" />
@@ -585,20 +648,30 @@ function CompletedProgressRecap({
   );
 }
 
-function SyncKpiCard() {
+function SyncKpiCard({ dashboardTab = "daily" }: { dashboardTab?: OwnerDashboardTab }) {
   return (
     <article className="rounded-[24px] border border-line bg-surface p-5">
       <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">KPI Sync</div>
       <p className="mt-4 text-lg font-semibold text-foreground">Sinkron KPI bulan berjalan</p>
       <p className="mt-2 text-sm leading-7 text-muted">Jalankan ulang perhitungan KPI untuk seluruh user bila Anda baru mengubah banyak data progres atau absensi sekaligus.</p>
-      <form action={syncCurrentMonthKpiAction} className="mt-5"><ActionButton pendingLabel="Menyinkronkan...">Sinkron sekarang</ActionButton></form>
+      <form action={syncCurrentMonthKpiAction} className="mt-5">
+        <OwnerDashboardTabField value={dashboardTab} />
+        <ActionButton pendingLabel="Menyinkronkan...">Sinkron sekarang</ActionButton>
+      </form>
     </article>
   );
 }
 
-function FinanceForm({ data }: { data: OwnerDashboardData }) {
+function FinanceForm({
+  data,
+  dashboardTab = "daily",
+}: {
+  data: OwnerDashboardData;
+  dashboardTab?: OwnerDashboardTab;
+}) {
   return (
     <form action={saveFinanceAction} className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-3">
+      <OwnerDashboardTabField value={dashboardTab} />
       <InputField defaultValue={String(data.activeFinanceYear)} label="Tahun" name="year" required type="number" />
       <InputField defaultValue={data.finance ? String(data.finance.netProfit) : "0"} label="Net profit" name="netProfit" required type="number" />
       <div className="flex items-end"><ActionButton pendingLabel="Menyimpan..." >Simpan finance</ActionButton></div>
@@ -674,11 +747,7 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
             </a>
           ) : null}
         </div>
-        <input name="simStart" type="hidden" value={data.simulationStartMonthKey} />
-        <input name="simEnd" type="hidden" value={data.simulationEndMonthKey} />
-        <input name="simAmount" type="hidden" value={String(data.simulationAmount)} />
-        <input name="trackingMonth" type="hidden" value={data.selectedMonitoringMonthKey} />
-        <input name="trackingUser" type="hidden" value={data.selectedMonitoringUserId} />
+        <DashboardTabQueryField value="kpi" />
       </form>
       <MonthlyKpiTable
         rows={data.selectedLockedMonthlyKpis}
@@ -732,9 +801,7 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
             menerima pembagian.
           </p>
         </div>
-        <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
-        <input name="trackingMonth" type="hidden" value={data.selectedMonitoringMonthKey} />
-        <input name="trackingUser" type="hidden" value={data.selectedMonitoringUserId} />
+        <DashboardTabQueryField value="kpi" />
         <div className="xl:col-span-4">
           <ActionButton pendingLabel="Menghitung..." tone="light">Hitung simulasi uang</ActionButton>
         </div>
@@ -1000,6 +1067,7 @@ function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) 
           </div>
           <form action={updateStopCardStatusAction} className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
             <input name="stopCardId" type="hidden" value={row.id} />
+            <OwnerDashboardTabField value="daily" />
             <label className="space-y-2 md:min-w-[240px]">
               <span className="text-sm font-semibold text-foreground">Status owner</span>
               <select
@@ -1025,45 +1093,132 @@ function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) 
 }
 
 function OwnerPanel({ data }: { data: OwnerDashboardData }) {
+  const isDailyTab = data.activeTab === "daily";
+  const isAddonTab = data.activeTab === "addon";
+  const isKpiTab = data.activeTab === "kpi";
+
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <StatCard description="Jumlah user aktif di dalam aplikasi KPI." label="Total tim" value={String(data.teamSize)} />
-        <StatCard description="Karyawan yang check-in tepat waktu hari ini." label="On time" tone="success" value={String(data.attendanceSummary.onTime)} />
-        <StatCard description="Karyawan yang melewati jam check-in 09:00." label="Terlambat" tone="warning" value={String(data.attendanceSummary.late)} />
-        <StatCard description="Jumlah pekerjaan yang sudah masuk fase closing." label="Progress selesai" tone="success" value={String(data.completedProgressCount)} />
-        <StatCard description="Jumlah pekerjaan aktif yang masih berjalan." label="Progress berjalan" tone="pending" value={String(data.openProgressCount)} />
-        <StatCard description="Bonus pool tahunan yang siap didistribusikan." label="Bonus pool" value={data.finance ? formatCurrency(data.finance.bonusPool) : "-"} />
-      </section>
-      <CardSection title="Aksi owner" description="Owner bisa memperbarui finance tahunan, menjalankan sync KPI, dan menambah pekerjaan baru dari sini.">
-        <div className="grid gap-4 xl:grid-cols-[0.6fr_0.4fr]"><div className="space-y-4"><FinanceForm data={data} /><CreateProgressForm teamUsers={data.teamUsers} /></div><SyncKpiCard /></div>
-      </CardSection>
-      <CardSection title="Status KPI final" description="Periode yang sudah dikunci tampil di sini agar owner cepat mengetahui bulan evaluasi mana yang hasilnya sudah final.">
-        <LockedKpiStatusCard rows={data.lockedKpiMonths} />
-      </CardSection>
-      <CardSection title="Nilai KPI final" description="Panel ini menampilkan nilai KPI yang sudah terkunci agar owner bisa melihat angka final tanpa masuk ke halaman Pengaturan.">
-        <LockedKpiValuesPanel data={data} />
-      </CardSection>
-      <CardSection title="Overview absensi hari ini" description="Warna hijau menandakan on time, merah untuk terlambat, dan kuning untuk OFF."><AttendanceTable rows={data.attendanceToday} emptyDescription="Data absensi akan muncul di sini setelah tim mulai check-in atau menandai OFF." /></CardSection>
-      <CardSection title="Monitoring lembur & pekerjaan add-on" description="Owner bisa memantau jam lembur dan input pekerjaan add-on berdasarkan bulan serta karyawan yang dipilih, lalu mengekspor CSV yang sama persis dengan filter aktif.">
-        <OwnerWorkTrackingPanel data={data} />
-      </CardSection>
-      <CardSection title="Daily progress berjalan" description="Owner dapat mengedit pekerjaan aktif, mengubah PIC, dan melakukan closing bila pekerjaan selesai."><ManagerProgressList rows={serializeProgressRows(data.recentProgress)} teamUsers={data.teamUsers} /></CardSection>
-      <CardSection title="Completed work recap" description="Rekap pekerjaan yang sudah closing membantu owner melihat deliverable yang benar-benar selesai."><CompletedProgressRecap allowDelete rows={data.completedProgressRows} emptyDescription="Belum ada item yang closing. Setelah admin atau owner melakukan closing, ringkasan akan tampil di sini." /></CardSection>
-      <CardSection title="STOP CARD masuk" description="Laporan antar karyawan tampil anonim di sini agar owner bisa membaca situasi kantor tanpa melihat identitas pengirim.">
-        <OwnerStopCardList rows={data.stopCards} />
-      </CardSection>
-      <CardSection title="KPI bulanan tim" description="Owner dapat memantau KPI bulanan seluruh tim dari skor kinerja dan disiplin yang sudah dihitung.">
-        <OwnerMonthlyKpiStatus
-          isFinal={data.monthlyKpiIsFinal}
-          periodLabel={data.monthlyKpiPeriodLabel}
-        />
-        <MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada KPI bulanan. Jalankan sync KPI setelah data absensi dan progres mulai terisi." />
-      </CardSection>
-      <CardSection title="Bonus calculator" description="Simulasi bonus tahunan menggunakan bonus pool perusahaan dan KPI tahunan karyawan yang eligible."><YearlyBonusTable data={data} /></CardSection>
-      <CardSection title="Simulasi uang per karyawan" description="Owner bisa menguji pembagian uang berdasarkan rata-rata KPI pada rentang bulan yang dipilih, tanpa mengubah data KPI asli.">
-        <KpiMoneySimulationPanel data={data} />
-      </CardSection>
+      <OwnerTabNavigation activeTab={data.activeTab} />
+
+      {isDailyTab ? (
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard description="Jumlah user aktif di dalam aplikasi KPI." label="Total tim" value={String(data.teamSize)} />
+            <StatCard description="Karyawan yang check-in tepat waktu hari ini." label="On time" tone="success" value={String(data.attendanceSummary.onTime)} />
+            <StatCard description="Karyawan yang melewati jam check-in 09:00." label="Terlambat" tone="warning" value={String(data.attendanceSummary.late)} />
+            <StatCard description="Jumlah pekerjaan aktif yang masih berjalan." label="Progress berjalan" tone="pending" value={String(data.openProgressCount)} />
+            <StatCard description="Jumlah pekerjaan yang sudah masuk fase closing." label="Progress selesai" tone="success" value={String(data.completedProgressCount)} />
+          </section>
+
+          <CardSection title="Aksi owner" description="Owner bisa memperbarui finance tahunan, menjalankan sync KPI, dan menambah pekerjaan baru dari sini.">
+            <div className="grid gap-4 xl:grid-cols-[0.6fr_0.4fr]">
+              <div className="space-y-4">
+                <FinanceForm dashboardTab="daily" data={data} />
+                <CreateProgressForm dashboardTab="daily" teamUsers={data.teamUsers} />
+              </div>
+              <SyncKpiCard dashboardTab="daily" />
+            </div>
+          </CardSection>
+
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+            <CardSection title="Overview absensi hari ini" description="Warna hijau menandakan on time, merah untuk terlambat, dan kuning untuk OFF.">
+              <AttendanceTable rows={data.attendanceToday} emptyDescription="Data absensi akan muncul di sini setelah tim mulai check-in atau menandai OFF." />
+            </CardSection>
+            <CardSection title="STOP CARD masuk" description="Laporan antar karyawan tampil anonim di sini agar owner bisa membaca situasi kantor tanpa melihat identitas pengirim.">
+              <OwnerStopCardList rows={data.stopCards} />
+            </CardSection>
+          </div>
+
+          <CardSection title="Daily progress berjalan" description="Owner dapat mengedit pekerjaan aktif, mengubah PIC, dan melakukan closing bila pekerjaan selesai.">
+            <ManagerProgressList dashboardTab="daily" rows={serializeProgressRows(data.recentProgress)} teamUsers={data.teamUsers} />
+          </CardSection>
+
+          <CardSection title="Completed work recap" description="Rekap pekerjaan yang sudah closing membantu owner melihat deliverable yang benar-benar selesai.">
+            <CompletedProgressRecap allowDelete rows={data.completedProgressRows} emptyDescription="Belum ada item yang closing. Setelah admin atau owner melakukan closing, ringkasan akan tampil di sini." />
+          </CardSection>
+        </>
+      ) : null}
+
+      {isAddonTab ? (
+        <>
+          <section className="grid gap-4 md:grid-cols-2">
+            <StatCard
+              description={
+                data.selectedMonitoringUserName
+                  ? `Akumulasi lembur ${data.selectedMonitoringUserName} pada ${data.selectedMonitoringMonthLabel}.`
+                  : `Akumulasi lembur seluruh karyawan pada ${data.selectedMonitoringMonthLabel}.`
+              }
+              label="Total lembur"
+              tone="success"
+              value={formatHours(data.overtimeMonthlyTotalHours)}
+            />
+            <StatCard
+              description={
+                data.selectedMonitoringUserName
+                  ? `Total add-on ${data.selectedMonitoringUserName} pada ${data.selectedMonitoringMonthLabel}.`
+                  : `Total add-on seluruh karyawan pada ${data.selectedMonitoringMonthLabel}.`
+              }
+              label="Total add-on"
+              tone="pending"
+              value={String(data.addonMonthlyTotalQuantity)}
+            />
+          </section>
+
+          <CardSection title="Monitoring lembur & pekerjaan add-on" description="Owner bisa memantau jam lembur dan input pekerjaan add-on berdasarkan bulan serta karyawan yang dipilih, lalu mengekspor CSV yang sama persis dengan filter aktif.">
+            <OwnerWorkTrackingPanel data={data} />
+          </CardSection>
+        </>
+      ) : null}
+
+      {isKpiTab ? (
+        <>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <StatCard
+              description="Status final KPI bulan berjalan berdasarkan periode yang sudah dikunci."
+              label="Status KPI"
+              tone={data.monthlyKpiIsFinal ? "success" : "pending"}
+              value={data.monthlyKpiIsFinal ? "Final" : "Dinamis"}
+            />
+            <StatCard
+              description={`Bonus pool aktif untuk tahun ${data.activeFinanceYear}.`}
+              label="Bonus pool"
+              value={data.finance ? formatCurrency(data.finance.bonusPool) : "-"}
+            />
+            <StatCard
+              description="Jumlah karyawan yang masuk simulasi bonus tahunan."
+              label="Eligible bonus"
+              tone="success"
+              value={String(data.bonusPreview.length)}
+            />
+          </section>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <CardSection title="Status KPI final" description="Periode yang sudah dikunci tampil di sini agar owner cepat mengetahui bulan evaluasi mana yang hasilnya sudah final.">
+              <LockedKpiStatusCard rows={data.lockedKpiMonths} />
+            </CardSection>
+            <CardSection title="Nilai KPI final" description="Panel ini menampilkan nilai KPI yang sudah terkunci agar owner bisa melihat angka final tanpa masuk ke halaman Pengaturan.">
+              <LockedKpiValuesPanel data={data} />
+            </CardSection>
+          </div>
+
+          <CardSection title="KPI bulanan tim" description="Owner dapat memantau KPI bulanan seluruh tim dari skor kinerja dan disiplin yang sudah dihitung.">
+            <OwnerMonthlyKpiStatus
+              isFinal={data.monthlyKpiIsFinal}
+              periodLabel={data.monthlyKpiPeriodLabel}
+            />
+            <MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada KPI bulanan. Jalankan sync KPI setelah data absensi dan progres mulai terisi." />
+          </CardSection>
+
+          <CardSection title="Bonus calculator" description="Simulasi bonus tahunan menggunakan bonus pool perusahaan dan KPI tahunan karyawan yang eligible.">
+            <YearlyBonusTable data={data} />
+          </CardSection>
+
+          <CardSection title="Simulasi uang per karyawan" description="Owner bisa menguji pembagian uang berdasarkan rata-rata KPI pada rentang bulan yang dipilih, tanpa mengubah data KPI asli.">
+            <KpiMoneySimulationPanel data={data} />
+          </CardSection>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1119,3 +1274,4 @@ function EmployeePanel({ data }: { data: EmployeeDashboardData }) {
 
 export const DashboardPanels = { Owner: OwnerPanel, Admin: AdminPanel, Employee: EmployeePanel };
 
+import Link from "next/link";
