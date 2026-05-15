@@ -52,6 +52,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   if (user.role === UserRole.OWNER) {
     const data = await getOwnerDashboardData({
       lockedMonthKey: readSingleParam(resolvedSearchParams, "lockedMonth"),
+      monitoringMonthKey: readSingleParam(resolvedSearchParams, "trackingMonth"),
+      monitoringUserId: readSingleParam(resolvedSearchParams, "trackingUser"),
       simulationAmount: readSingleParam(resolvedSearchParams, "simAmount"),
       simulationEndMonthKey: readSingleParam(resolvedSearchParams, "simEnd"),
       simulationStartMonthKey: readSingleParam(resolvedSearchParams, "simStart"),

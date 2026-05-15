@@ -3,6 +3,11 @@ import { AttendanceStatus, UserRole } from "@prisma/client";
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
+  buildRecentMonthOptions,
+  getMonthlyAddonSummary,
+  getMonthlyOvertimeSummary,
+} from "@/lib/work-tracking";
+import {
   addDays,
   calculateIndividualBonus,
   formatMonthYear,
@@ -419,6 +424,8 @@ async function getAssignableUsers() {
 
 async function buildOwnerDashboardData(input?: {
   lockedMonthKey?: string;
+  monitoringMonthKey?: string;
+  monitoringUserId?: string;
   simulationAmount?: string;
   simulationEndMonthKey?: string;
   simulationStartMonthKey?: string;
@@ -588,6 +595,26 @@ async function buildOwnerDashboardData(input?: {
   const attendanceToday = mapAttendanceRows(attendanceRows);
   const monthlyKpis = sortMonthlyKpisAlphabetically(mapMonthlyKpis(monthlyRows));
   const yearlyKpis = mapYearlyKpis(yearlyRows);
+  const monitoringMonthOptions = buildRecentMonthOptions(12, now);
+  const selectedMonitoringMonth =
+    findMonthOption(monitoringMonthOptions, input?.monitoringMonthKey) ??
+    monitoringMonthOptions[0];
+  const selectedMonitoringUser =
+    input?.monitoringUserId && teamUsers.some((teamUser) => teamUser.id === input.monitoringUserId)
+      ? teamUsers.find((teamUser) => teamUser.id === input.monitoringUserId) ?? null
+      : null;
+  const [overtimeSummary, addonSummary] = await Promise.all([
+    getMonthlyOvertimeSummary({
+      year: selectedMonitoringMonth.year,
+      month: selectedMonitoringMonth.month,
+      userId: selectedMonitoringUser?.id,
+    }),
+    getMonthlyAddonSummary({
+      year: selectedMonitoringMonth.year,
+      month: selectedMonitoringMonth.month,
+      userId: selectedMonitoringUser?.id,
+    }),
+  ]);
   const bonusPool = finance?.bonusPool ?? 0;
   const eligibleKpis = yearlyKpis.filter((row) => row.avgScore >= 70);
   const totalEligibleKpi = eligibleKpis.reduce((sum, row) => sum + row.avgScore, 0);
@@ -785,6 +812,15 @@ async function buildOwnerDashboardData(input?: {
         : "Belum ada periode KPI",
     simulationRows,
     activeFinanceYear: finance?.year ?? currentYear,
+    monitoringMonthOptions,
+    selectedMonitoringMonthKey: selectedMonitoringMonth.key,
+    selectedMonitoringMonthLabel: selectedMonitoringMonth.label,
+    selectedMonitoringUserId: selectedMonitoringUser?.id ?? "",
+    selectedMonitoringUserName: selectedMonitoringUser?.name ?? null,
+    overtimeRows: overtimeSummary.rows,
+    overtimeMonthlyTotalHours: overtimeSummary.totalHours,
+    addonRows: addonSummary.rows,
+    addonMonthlyTotalQuantity: addonSummary.totalQuantity,
     finance: finance
       ? {
           year: finance.year,
@@ -797,6 +833,8 @@ async function buildOwnerDashboardData(input?: {
 
 export async function getOwnerDashboardData(input?: {
   lockedMonthKey?: string;
+  monitoringMonthKey?: string;
+  monitoringUserId?: string;
   simulationAmount?: string;
   simulationEndMonthKey?: string;
   simulationStartMonthKey?: string;
@@ -903,7 +941,7 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
   const tomorrowStart = addDays(todayStart, 1);
   const { month: currentMonth, year: currentYear } = getAppDateParts(now);
 
-  const [attendanceToday, recentAttendance, progressRows, monthlyKpi, yearlyKpi, stopCardRows] = await Promise.all([
+  const [attendanceToday, recentAttendance, progressRows, monthlyKpi, yearlyKpi, stopCardRows, overtimeSummary, addonSummary] = await Promise.all([
     prisma.attendance.findFirst({
       where: {
         userId,
@@ -965,6 +1003,16 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
       take: 6,
       select: stopCardRowSelect,
     }),
+    getMonthlyOvertimeSummary({
+      year: currentYear,
+      month: currentMonth,
+      userId,
+    }),
+    getMonthlyAddonSummary({
+      year: currentYear,
+      month: currentMonth,
+      userId,
+    }),
   ]);
 
   const mappedMonthly = monthlyKpi ? mapMonthlyKpis([monthlyKpi])[0] : null;
@@ -979,6 +1027,12 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
     stopCards: mapEmployeeStopCards(stopCardRows),
     narrative: getKpiNarrative(mappedMonthly?.totalScore, mappedYearly?.avgScore),
     scheduleLabel: getWorkdaySchedule(now).label,
+    overtimeRows: overtimeSummary.rows,
+    overtimeMonthLabel: formatMonthYear(currentMonth, currentYear),
+    overtimeMonthlyTotalHours: overtimeSummary.totalHours,
+    addonRows: addonSummary.rows,
+    addonMonthLabel: formatMonthYear(currentMonth, currentYear),
+    addonMonthlyTotalQuantity: addonSummary.totalQuantity,
   };
 }
 

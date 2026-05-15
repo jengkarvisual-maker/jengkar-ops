@@ -1,4 +1,4 @@
-import type { AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
+import type { AddonType, AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
 
 export type AttendanceItem = {
   id: string;
@@ -108,6 +108,31 @@ export type BonusSimulationItem = {
   bonus: number;
 };
 
+export type OvertimeItem = {
+  attendanceId: string;
+  userId: string;
+  name: string;
+  email: string;
+  date: Date;
+  checkOut: Date;
+  overtimeHours: number;
+  monthTotalHours: number;
+};
+
+export type EmployeeAddonItem = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  addonDate: Date;
+  addonType: AddonType;
+  addonTypeLabel: string;
+  addonQuantity: number;
+  monthTotalQuantity: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type OwnerDashboardData = {
   teamSize: number;
   teamUsers: DashboardUser[];
@@ -139,6 +164,15 @@ export type OwnerDashboardData = {
   simulationPeriodLabel: string;
   simulationRows: BonusSimulationItem[];
   activeFinanceYear: number;
+  monitoringMonthOptions: DashboardMonthOption[];
+  selectedMonitoringMonthKey: string;
+  selectedMonitoringMonthLabel: string;
+  selectedMonitoringUserId: string;
+  selectedMonitoringUserName: string | null;
+  overtimeRows: OvertimeItem[];
+  overtimeMonthlyTotalHours: number;
+  addonRows: EmployeeAddonItem[];
+  addonMonthlyTotalQuantity: number;
   finance:
     | {
         year: number;
@@ -171,4 +205,10 @@ export type EmployeeDashboardData = {
   stopCards: EmployeeStopCardItem[];
   narrative: string;
   scheduleLabel: string;
+  overtimeRows: OvertimeItem[];
+  overtimeMonthLabel: string;
+  overtimeMonthlyTotalHours: number;
+  addonRows: EmployeeAddonItem[];
+  addonMonthLabel: string;
+  addonMonthlyTotalQuantity: number;
 };

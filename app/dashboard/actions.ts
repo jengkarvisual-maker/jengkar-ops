@@ -1,6 +1,6 @@
 "use server";
 
-import { AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
+import { AddonType, AttendanceStatus, StopCardStatus, UserRole } from "@prisma/client";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -8,6 +8,7 @@ import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
+import { getAddonTypeLabel } from "@/lib/work-tracking";
 import {
   calculateBonusPool,
   getAppDateParts,
@@ -82,6 +83,29 @@ export type CloseProgressInlineResult =
       message: string;
     };
 
+export type EmployeeAddonMutationRow = {
+  id: string;
+  userId: string;
+  name: string;
+  addonDate: string;
+  addonType: AddonType;
+  addonTypeLabel: string;
+  addonQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaveEmployeeAddonResult =
+  | {
+      ok: true;
+      row: EmployeeAddonMutationRow;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 function refreshDashboard() {
   revalidateTag(OPS_DASHBOARD_TAG, "max");
   revalidatePath("/dashboard");
@@ -97,6 +121,31 @@ function toIsoDateValue(value: Date | string | null | undefined) {
   }
 
   return value.toISOString();
+}
+
+function serializeEmployeeAddonRow(row: {
+  id: string;
+  userId: string;
+  addonDate: Date;
+  addonType: AddonType;
+  addonQuantity: number;
+  createdAt: Date;
+  updatedAt: Date;
+  user: {
+    name: string;
+  };
+}): EmployeeAddonMutationRow {
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: row.user.name,
+    addonDate: toIsoDateValue(row.addonDate) ?? new Date().toISOString(),
+    addonType: row.addonType,
+    addonTypeLabel: getAddonTypeLabel(row.addonType),
+    addonQuantity: row.addonQuantity,
+    createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIsoDateValue(row.updatedAt) ?? new Date().toISOString(),
+  };
 }
 
 function serializeManagerProgressRow(row: {
@@ -199,6 +248,16 @@ function parseStopCardStatus(value: FormDataEntryValue | null) {
   return normalized as StopCardStatus;
 }
 
+function parseAddonType(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+
+  if (!Object.values(AddonType).includes(normalized as AddonType)) {
+    return null;
+  }
+
+  return normalized as AddonType;
+}
+
 function parsePositiveNumber(value: FormDataEntryValue | null, fieldLabel: string) {
   const normalized = String(value ?? "").trim();
   const parsed = Number(normalized);
@@ -208,6 +267,17 @@ function parsePositiveNumber(value: FormDataEntryValue | null, fieldLabel: strin
   }
 
   return parsed;
+}
+
+function parseAddonQuantity(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  const quantity = Number(normalized);
+
+  if (!normalized || Number.isNaN(quantity) || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+    return null;
+  }
+
+  return quantity;
 }
 
 function parseYear(value: FormDataEntryValue | null) {
@@ -1101,6 +1171,71 @@ export async function updateEmployeeProgressAction(formData: FormData) {
   ]);
   refreshDashboard();
   redirectWithFeedback("success", "Update progres pribadi berhasil disimpan.");
+}
+
+export async function saveEmployeeAddonAction(
+  formData: FormData,
+): Promise<SaveEmployeeAddonResult> {
+  const user = await requireAuthenticatedUser();
+
+  if (user.role !== UserRole.KARYAWAN) {
+    return {
+      ok: false,
+      message: "Fitur add-on hanya tersedia untuk akun karyawan.",
+    };
+  }
+
+  try {
+    const addonType = parseAddonType(formData.get("addonType"));
+    const addonQuantity = parseAddonQuantity(formData.get("addonQuantity"));
+
+    if (!addonType) {
+      return {
+        ok: false,
+        message: "Jenis pekerjaan add-on belum valid.",
+      };
+    }
+
+    if (!addonQuantity) {
+      return {
+        ok: false,
+        message: "Jumlah pekerjaan add-on harus berupa angka 1 sampai 10.",
+      };
+    }
+
+    const addonDate = startOfDay(new Date());
+
+    const created = await prisma.employeeAddon.create({
+      data: {
+        userId: user.id,
+        addonDate,
+        addonType,
+        addonQuantity,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    refreshDashboard();
+
+    return {
+      ok: true,
+      row: serializeEmployeeAddonRow(created),
+      message: "Pekerjaan add-on berhasil disimpan.",
+    };
+  } catch (error) {
+    console.error("[employee-addon] save failed", error);
+
+    return {
+      ok: false,
+      message: "Pekerjaan add-on belum berhasil disimpan. Coba lagi.",
+    };
+  }
 }
 
 export async function saveFinanceAction(formData: FormData) {

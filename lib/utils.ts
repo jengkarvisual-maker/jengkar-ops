@@ -66,6 +66,11 @@ function createAppTimestamp(year: number, month: number, day: number, hour = 0, 
   return new Date(Date.UTC(year, month - 1, day, hour - APP_UTC_OFFSET_HOURS, minute, second, 0));
 }
 
+export function getAppTimeOnDate(date: Date, hour: number, minute = 0, second = 0) {
+  const { year, month, day } = getAppDateParts(date);
+  return createAppTimestamp(year, month, day, hour, minute, second);
+}
+
 export function roundNumber(value: number, digits = 2) {
   return Number(value.toFixed(digits));
 }
@@ -259,6 +264,21 @@ export function formatDateTime(value?: Date | string | null) {
   }).format(date);
 }
 
+export function formatTime(value?: Date | string | null) {
+  const date = parseDate(value);
+
+  if (!date) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: APP_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
 export function formatMonthYear(month: number, year: number) {
   return new Intl.DateTimeFormat("id-ID", {
     timeZone: APP_TIME_ZONE,
@@ -281,6 +301,14 @@ export function formatScore(value?: number | null) {
   }
 
   return TWO_DIGIT_NUMBER.format(value);
+}
+
+export function formatHours(value?: number | null) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+
+  return `${TWO_DIGIT_NUMBER.format(value)} jam`;
 }
 
 export function getRoleLabel(role: UserRole) {

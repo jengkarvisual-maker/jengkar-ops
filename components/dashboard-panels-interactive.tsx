@@ -5,6 +5,7 @@ import {
   checkInAction,
   checkOutAction,
   createProgressAction,
+  type EmployeeAddonMutationRow,
   markOffAction,
   saveFinanceAction,
   submitStopCardAction,
@@ -13,6 +14,7 @@ import {
   updateEmployeeProgressAction,
 } from "@/app/dashboard/actions";
 import { CompletedProgressRecapClient } from "@/components/completed-progress-recap-client";
+import { EmployeeAddonPanelClient } from "@/components/employee-addon-panel-client";
 import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { JOB_OPTIONS } from "@/lib/job-catalog";
@@ -21,8 +23,10 @@ import {
   formatDate,
   formatDateInput,
   formatDateTime,
+  formatHours,
   formatMonthYear,
   formatScore,
+  formatTime,
 } from "@/lib/utils";
 import type {
   AdminDashboardData,
@@ -138,6 +142,22 @@ function serializeProgressRows(rows: ProgressItem[]): ManagerProgressItem[] {
     revisiDone: toIsoDateValue(row.revisiDone),
     canceledAt: toIsoDateValue(row.canceledAt),
     createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
+  }));
+}
+
+function serializeAddonRows(
+  rows: EmployeeDashboardData["addonRows"],
+): EmployeeAddonMutationRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.userId,
+    name: row.name,
+    addonDate: toIsoDateValue(row.addonDate) ?? new Date().toISOString(),
+    addonType: row.addonType,
+    addonTypeLabel: row.addonTypeLabel,
+    addonQuantity: row.addonQuantity,
+    createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIsoDateValue(row.updatedAt) ?? new Date().toISOString(),
   }));
 }
 
@@ -263,6 +283,155 @@ function AttendanceTable({ rows, emptyDescription }: { rows: OwnerDashboardData[
         </tbody>
       </table>
     </TableShell>
+  );
+}
+
+function OvertimeTable({
+  rows,
+  emptyDescription,
+}: {
+  rows: OwnerDashboardData["overtimeRows"] | EmployeeDashboardData["overtimeRows"];
+  emptyDescription: string;
+}) {
+  if (rows.length === 0) {
+    return <EmptyState description={emptyDescription} title="Belum ada jam lembur" />;
+  }
+
+  return (
+    <TableShell>
+      <table className="min-w-full text-left text-sm">
+        <thead className="bg-white/80 text-muted">
+          <tr>
+            <th className="px-4 py-3 font-semibold">Nama</th>
+            <th className="px-4 py-3 font-semibold">Tanggal</th>
+            <th className="px-4 py-3 font-semibold">Check-out</th>
+            <th className="px-4 py-3 font-semibold">Jam lembur</th>
+            <th className="px-4 py-3 font-semibold">Total bulan ini</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr className="border-t border-line/70" key={row.attendanceId}>
+              <td className="px-4 py-3">
+                <div>
+                  <p className="font-semibold text-foreground">{row.name}</p>
+                  <p className="text-xs text-muted">{row.email}</p>
+                </div>
+              </td>
+              <td className="px-4 py-3 text-muted">{formatDate(row.date)}</td>
+              <td className="px-4 py-3 text-muted">{formatTime(row.checkOut)}</td>
+              <td className="px-4 py-3 font-semibold text-foreground">{formatHours(row.overtimeHours)}</td>
+              <td className="px-4 py-3 text-muted">{formatHours(row.monthTotalHours)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableShell>
+  );
+}
+
+function AddonTable({
+  rows,
+  emptyDescription,
+}: {
+  rows: OwnerDashboardData["addonRows"] | EmployeeDashboardData["addonRows"];
+  emptyDescription: string;
+}) {
+  if (rows.length === 0) {
+    return <EmptyState description={emptyDescription} title="Belum ada pekerjaan add-on" />;
+  }
+
+  return (
+    <TableShell>
+      <table className="min-w-full text-left text-sm">
+        <thead className="bg-white/80 text-muted">
+          <tr>
+            <th className="px-4 py-3 font-semibold">Nama</th>
+            <th className="px-4 py-3 font-semibold">Tanggal</th>
+            <th className="px-4 py-3 font-semibold">Jenis add-on</th>
+            <th className="px-4 py-3 font-semibold">Jumlah</th>
+            <th className="px-4 py-3 font-semibold">Total bulan ini</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr className="border-t border-line/70" key={row.id}>
+              <td className="px-4 py-3">
+                <div>
+                  <p className="font-semibold text-foreground">{row.name}</p>
+                  <p className="text-xs text-muted">{row.email}</p>
+                </div>
+              </td>
+              <td className="px-4 py-3 text-muted">{formatDate(row.addonDate)}</td>
+              <td className="px-4 py-3 text-muted">{row.addonTypeLabel}</td>
+              <td className="px-4 py-3 font-semibold text-foreground">{row.addonQuantity}</td>
+              <td className="px-4 py-3 text-muted">{row.monthTotalQuantity}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableShell>
+  );
+}
+
+function MonitoringFiltersHiddenFields({ data }: { data: OwnerDashboardData }) {
+  return (
+    <>
+      <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
+      <input name="simStart" type="hidden" value={data.simulationStartMonthKey} />
+      <input name="simEnd" type="hidden" value={data.simulationEndMonthKey} />
+      <input name="simAmount" type="hidden" value={String(data.simulationAmount)} />
+    </>
+  );
+}
+
+function MonitoringFilterForm({ data }: { data: OwnerDashboardData }) {
+  const exportHref = `/api/work-tracking/export?monthKey=${encodeURIComponent(
+    data.selectedMonitoringMonthKey,
+  )}${data.selectedMonitoringUserId ? `&userId=${encodeURIComponent(data.selectedMonitoringUserId)}` : ""}`;
+
+  return (
+    <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 xl:grid-cols-[0.26fr_0.26fr_0.24fr_0.24fr]">
+      <MonthSelectField
+        defaultValue={data.selectedMonitoringMonthKey}
+        label="Filter bulan"
+        name="trackingMonth"
+        options={data.monitoringMonthOptions}
+      />
+      <label className="space-y-2">
+        <span className="text-sm font-semibold text-foreground">Filter karyawan</span>
+        <select
+          className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+          defaultValue={data.selectedMonitoringUserId}
+          name="trackingUser"
+        >
+          <option value="">Semua karyawan</option>
+          {data.teamUsers.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+        <p className="font-semibold text-foreground">{data.selectedMonitoringMonthLabel}</p>
+        <p className="mt-2">
+          {data.selectedMonitoringUserName
+            ? `Menampilkan data ${data.selectedMonitoringUserName}.`
+            : "Menampilkan semua karyawan pada bulan terpilih."}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <ActionButton pendingLabel="Memuat..." tone="light">Terapkan filter</ActionButton>
+        <a
+          className="button-press inline-flex h-11 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold text-foreground transition hover:border-accent/30 hover:text-accent"
+          href={exportHref}
+        >
+          Export CSV
+        </a>
+      </div>
+      <MonitoringFiltersHiddenFields data={data} />
+    </form>
   );
 }
 
@@ -508,6 +677,8 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
         <input name="simStart" type="hidden" value={data.simulationStartMonthKey} />
         <input name="simEnd" type="hidden" value={data.simulationEndMonthKey} />
         <input name="simAmount" type="hidden" value={String(data.simulationAmount)} />
+        <input name="trackingMonth" type="hidden" value={data.selectedMonitoringMonthKey} />
+        <input name="trackingUser" type="hidden" value={data.selectedMonitoringUserId} />
       </form>
       <MonthlyKpiTable
         rows={data.selectedLockedMonthlyKpis}
@@ -562,6 +733,8 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
           </p>
         </div>
         <input name="lockedMonth" type="hidden" value={data.selectedLockedKpiMonth?.key ?? ""} />
+        <input name="trackingMonth" type="hidden" value={data.selectedMonitoringMonthKey} />
+        <input name="trackingUser" type="hidden" value={data.selectedMonitoringUserId} />
         <div className="xl:col-span-4">
           <ActionButton pendingLabel="Menghitung..." tone="light">Hitung simulasi uang</ActionButton>
         </div>
@@ -650,6 +823,86 @@ function EmployeeSummary({ data }: { data: EmployeeDashboardData }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard description="Ringkasan KPI untuk periode bulan berjalan." label="KPI bulanan" tone={(data.monthlyKpi?.totalScore ?? 0) >= 80 ? "success" : "default"} value={data.monthlyKpi ? formatScore(data.monthlyKpi.totalScore) : "-"} />
         <StatCard description="Rata-rata tahunan yang dipakai untuk evaluasi bonus." label="KPI tahunan" tone={(data.yearlyKpi?.avgScore ?? 0) >= 80 ? "success" : "default"} value={data.yearlyKpi ? formatScore(data.yearlyKpi.avgScore) : "-"} />
+      </div>
+    </div>
+  );
+}
+
+function EmployeeOvertimePanel({ data }: { data: EmployeeDashboardData }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[0.38fr_0.62fr]">
+        <article className="rounded-[24px] border border-line bg-surface p-5">
+          <div className="inline-flex rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+            Lembur {data.overtimeMonthLabel}
+          </div>
+          <p className="mt-4 text-3xl font-semibold text-foreground">{formatHours(data.overtimeMonthlyTotalHours)}</p>
+          <p className="mt-2 text-sm leading-7 text-muted">
+            Jam lembur otomatis dihitung dari check-out setelah pukul 16.00 WIB. Jika check-out
+            sebelum atau tepat 16.00, lembur tetap 0.
+          </p>
+        </article>
+        <div className="rounded-[24px] border border-line bg-surface p-5">
+          <p className="text-lg font-semibold text-foreground">Riwayat lembur bulan berjalan</p>
+          <p className="mt-2 text-sm leading-7 text-muted">
+            Daftar ini hanya menampilkan hari yang benar-benar memiliki jam lembur.
+          </p>
+          <div className="mt-4">
+            <OvertimeTable
+              rows={data.overtimeRows}
+              emptyDescription="Belum ada hari dengan check-out di atas jam 16.00 WIB pada bulan ini."
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
+  return (
+    <div className="space-y-4">
+      <MonitoringFilterForm data={data} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <article className="rounded-[24px] border border-line bg-surface p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-foreground">Monitoring jam lembur</p>
+              <p className="mt-2 text-sm leading-7 text-muted">
+                Menampilkan jam check-out dan total lembur bulanan berdasarkan filter yang sedang aktif.
+              </p>
+            </div>
+            <div className="rounded-full border border-success/15 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+              Total {formatHours(data.overtimeMonthlyTotalHours)}
+            </div>
+          </div>
+          <div className="mt-4">
+            <OvertimeTable
+              rows={data.overtimeRows}
+              emptyDescription="Belum ada data jam lembur untuk filter bulan atau karyawan yang dipilih."
+            />
+          </div>
+        </article>
+
+        <article className="rounded-[24px] border border-line bg-surface p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-foreground">Monitoring pekerjaan add-on</p>
+              <p className="mt-2 text-sm leading-7 text-muted">
+                Menampilkan jenis add-on, jumlah per hari, dan total add-on bulan berjalan untuk filter yang sama.
+              </p>
+            </div>
+            <div className="rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+              Total {data.addonMonthlyTotalQuantity}
+            </div>
+          </div>
+          <div className="mt-4">
+            <AddonTable
+              rows={data.addonRows}
+              emptyDescription="Belum ada input pekerjaan add-on untuk filter bulan atau karyawan yang dipilih."
+            />
+          </div>
+        </article>
       </div>
     </div>
   );
@@ -792,6 +1045,9 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
         <LockedKpiValuesPanel data={data} />
       </CardSection>
       <CardSection title="Overview absensi hari ini" description="Warna hijau menandakan on time, merah untuk terlambat, dan kuning untuk OFF."><AttendanceTable rows={data.attendanceToday} emptyDescription="Data absensi akan muncul di sini setelah tim mulai check-in atau menandai OFF." /></CardSection>
+      <CardSection title="Monitoring lembur & pekerjaan add-on" description="Owner bisa memantau jam lembur dan input pekerjaan add-on berdasarkan bulan serta karyawan yang dipilih, lalu mengekspor CSV yang sama persis dengan filter aktif.">
+        <OwnerWorkTrackingPanel data={data} />
+      </CardSection>
       <CardSection title="Daily progress berjalan" description="Owner dapat mengedit pekerjaan aktif, mengubah PIC, dan melakukan closing bila pekerjaan selesai."><ManagerProgressList rows={serializeProgressRows(data.recentProgress)} teamUsers={data.teamUsers} /></CardSection>
       <CardSection title="Completed work recap" description="Rekap pekerjaan yang sudah closing membantu owner melihat deliverable yang benar-benar selesai."><CompletedProgressRecap allowDelete rows={data.completedProgressRows} emptyDescription="Belum ada item yang closing. Setelah admin atau owner melakukan closing, ringkasan akan tampil di sini." /></CardSection>
       <CardSection title="STOP CARD masuk" description="Laporan antar karyawan tampil anonim di sini agar owner bisa membaca situasi kantor tanpa melihat identitas pengirim.">
@@ -838,6 +1094,16 @@ function EmployeePanel({ data }: { data: EmployeeDashboardData }) {
         <StatCard description="Waktu pulang terakhir yang tercatat hari ini." label="Check-out" value={data.attendanceToday ? formatDateTime(data.attendanceToday.checkOut) : "-"} />
       </section>
       <CardSection title="Attendance system" description="Bagian ini adalah pusat absensi pribadi Anda untuk hari berjalan."><AttendanceActions data={data} /></CardSection>
+      <CardSection title="Jam lembur otomatis" description="Jam lembur dihitung otomatis dari jam check-out yang lewat pukul 16.00 WIB dan diringkas per bulan berjalan.">
+        <EmployeeOvertimePanel data={data} />
+      </CardSection>
+      <CardSection title="Pekerjaan add-on" description="Karyawan bisa mencatat jumlah pekerjaan add-on harian, lalu melihat riwayat bulan berjalan tanpa membuka halaman lain.">
+        <EmployeeAddonPanelClient
+          initialRows={serializeAddonRows(data.addonRows)}
+          initialTotalQuantity={data.addonMonthlyTotalQuantity}
+          monthLabel={data.addonMonthLabel}
+        />
+      </CardSection>
       <CardSection title="STOP CARD" description="Gunakan ruang ini untuk menceritakan situasi yang terjadi di kantor. Owner akan membaca isi laporan tanpa melihat identitas pengirim.">
         <div className="grid gap-4 xl:grid-cols-[0.44fr_0.56fr]">
           <EmployeeStopCardForm />
