@@ -197,7 +197,7 @@ function DashboardTabQueryField({ value }: { value: OwnerDashboardTab }) {
 
 function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
   return (
-    <div className="ui-panel space-y-3 p-4 md:p-5">
+    <div className="ui-panel space-y-2.5 p-4 md:p-5">
       <div className="overflow-x-auto">
         <div className="inline-flex min-w-max gap-2 rounded-full border border-line bg-[#f7f7f8] p-1">
           {OWNER_TAB_ITEMS.map((tab) => {
@@ -205,22 +205,28 @@ function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
 
             return (
               <Link
+                aria-current={isActive ? "page" : undefined}
                 className={`button-press inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-foreground !text-white shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
+                    ? "bg-foreground text-white shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
                     : "text-foreground/70 hover:text-foreground"
                 }`}
                 href={`/dashboard?tab=${tab.key}`}
                 key={tab.key}
-                style={isActive ? { color: "#FFFFFF" } : undefined}
+                style={isActive ? { color: "#FFFFFF", WebkitTextFillColor: "#FFFFFF" } : undefined}
               >
-                {tab.label}
+                <span
+                  className={isActive ? "text-white" : undefined}
+                  style={isActive ? { color: "#FFFFFF", WebkitTextFillColor: "#FFFFFF" } : undefined}
+                >
+                  {tab.label}
+                </span>
               </Link>
             );
           })}
         </div>
       </div>
-      <div className="ui-surface px-4 py-4">
+      <div className="ui-surface px-4 py-3.5">
         <p className="text-sm font-semibold text-foreground">
           {OWNER_TAB_ITEMS.find((tab) => tab.key === activeTab)?.label}
         </p>
@@ -455,7 +461,10 @@ function MonitoringFilterForm({ data }: { data: OwnerDashboardData }) {
   )}${data.selectedMonitoringUserId ? `&userId=${encodeURIComponent(data.selectedMonitoringUserId)}` : ""}`;
 
   return (
-    <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 xl:grid-cols-[0.26fr_0.26fr_0.24fr_0.24fr]">
+    <form
+      action="/dashboard"
+      className="grid gap-3 rounded-[24px] border border-line bg-surface p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(260px,0.9fr)_auto] xl:items-end"
+    >
       <MonthSelectField
         defaultValue={data.selectedMonitoringMonthKey}
         label="Filter bulan"
@@ -477,15 +486,15 @@ function MonitoringFilterForm({ data }: { data: OwnerDashboardData }) {
           ))}
         </select>
       </label>
-      <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+      <div className="rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
         <p className="font-semibold text-foreground">{data.selectedMonitoringMonthLabel}</p>
-        <p className="mt-2">
+        <p className="mt-1.5">
           {data.selectedMonitoringUserName
             ? `Menampilkan data ${data.selectedMonitoringUserName}.`
             : "Menampilkan semua karyawan pada bulan terpilih."}
         </p>
       </div>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-stretch gap-3 sm:items-end xl:justify-end">
         <ActionButton pendingLabel="Memuat..." tone="light">Terapkan filter</ActionButton>
         <a
           className="button-press inline-flex h-11 items-center justify-center rounded-full border border-line bg-white px-4 text-sm font-semibold text-foreground transition hover:border-accent/30 hover:text-accent"
@@ -535,35 +544,42 @@ function OwnerMonthlyKpiStatus({
   lock: OwnerDashboardData["selectedKpiMonthLock"];
 }) {
   return (
-    <div className="mb-5 space-y-4 rounded-[20px] border border-line bg-surface px-4 py-4">
+    <div className="mb-4 space-y-3 rounded-[20px] border border-line bg-surface px-4 py-4 md:px-5">
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm font-semibold text-foreground">Periode yang ditampilkan: {periodLabel}</p>
         <TitleStatusChip label={isFinal ? "Final" : "Belum final"} tone={isFinal ? "success" : "pending"} />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[0.34fr_0.41fr_0.25fr]">
-        <form action="/dashboard" className="contents">
-          <label className="space-y-2">
-            <span className="text-sm font-semibold text-foreground">Pilih periode KPI</span>
-            <select className="ui-select" defaultValue={selectedMonthKey} name="kpiMonth">
-              {monthOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <DashboardTabQueryField value="kpi" />
-          <div className="flex flex-wrap items-end gap-3 xl:justify-end">
-            <ActionButton pendingLabel="Memuat..." tone="light">
-              Tampilkan periode
-            </ActionButton>
-          </div>
-        </form>
-        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)] lg:items-start">
+        <div className="space-y-3">
+          <form action="/dashboard" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label className="space-y-2">
+              <span className="text-sm font-semibold text-foreground">Pilih periode KPI</span>
+              <select className="ui-select" defaultValue={selectedMonthKey} name="kpiMonth">
+                {monthOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <ActionButton pendingLabel="Memuat..." tone="light">
+                Tampilkan periode
+              </ActionButton>
+            </div>
+            <DashboardTabQueryField value="kpi" />
+          </form>
+          {selectedMonthKey ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <LockKpiMonthForm disabled={isFinal} kpiMonth={selectedMonthKey} />
+            </div>
+          ) : null}
+        </div>
+        <div className="rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
           {isFinal && lock ? (
             <>
               <p className="font-semibold text-foreground">KPI periode ini sudah dikunci</p>
-              <p className="mt-2">
+              <p className="mt-1.5">
                 Dikunci {formatDateTime(lock.lockedAt)} oleh {lock.lockedByName}. Nilai final tidak
                 akan berubah otomatis lagi.
               </p>
@@ -571,17 +587,12 @@ function OwnerMonthlyKpiStatus({
           ) : (
             <>
               <p className="font-semibold text-foreground">KPI periode ini masih dinamis</p>
-              <p className="mt-2">
+              <p className="mt-1.5">
                 Nilai masih bisa berubah mengikuti update absensi, progres, dan sync KPI sampai
                 owner menguncinya.
               </p>
             </>
           )}
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          {selectedMonthKey ? (
-            <LockKpiMonthForm disabled={isFinal} kpiMonth={selectedMonthKey} />
-          ) : null}
         </div>
       </div>
     </div>
@@ -771,18 +782,21 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
 
   return (
     <div className="space-y-4">
-      <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 lg:grid-cols-[0.38fr_0.32fr_0.3fr]">
+      <form
+        action="/dashboard"
+        className="grid gap-3 rounded-[24px] border border-line bg-surface p-4 md:p-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(280px,0.9fr)_auto] lg:items-end"
+      >
         <MonthSelectField
           defaultValue={data.selectedLockedKpiMonth?.key}
           label="Periode KPI final"
           name="lockedMonth"
           options={data.lockedKpiMonthOptions}
         />
-        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+        <div className="rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
           {data.selectedLockedKpiMonth ? (
             <>
               <p className="font-semibold text-foreground">{data.selectedLockedKpiMonth.label}</p>
-              <p className="mt-2">
+              <p className="mt-1.5">
                 Dikunci {formatDateTime(data.selectedLockedKpiMonth.lockedAt)} oleh{" "}
                 {data.selectedLockedKpiMonth.lockedByName}.
               </p>
@@ -824,7 +838,10 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
 
   return (
     <div className="space-y-4">
-      <form action="/dashboard" className="grid gap-4 rounded-[24px] border border-line bg-surface p-5 xl:grid-cols-[0.22fr_0.22fr_0.22fr_0.34fr]">
+      <form
+        action="/dashboard"
+        className="grid gap-3 rounded-[24px] border border-line bg-surface p-4 md:p-5 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,0.88fr)_minmax(0,1fr)_minmax(280px,1fr)_auto] xl:items-end"
+      >
         <MonthSelectField
           defaultValue={data.simulationStartMonthKey}
           label="Bulan awal"
@@ -843,7 +860,7 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
           name="simAmount"
           type="number"
         />
-        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+        <div className="rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
           <div className="flex flex-wrap items-center gap-3">
             <p className="font-semibold text-foreground">{data.simulationPeriodLabel}</p>
             <TitleStatusChip
@@ -851,15 +868,15 @@ function KpiMoneySimulationPanel({ data }: { data: OwnerDashboardData }) {
               tone={data.simulationIsFullyLocked ? "success" : "pending"}
             />
           </div>
-          <p className="mt-2">
+          <p className="mt-1.5">
             Simulasi memakai rata-rata KPI bulanan pada rentang terpilih. KPI di bawah 70 tidak
             menerima pembagian.
           </p>
         </div>
-        <DashboardTabQueryField value="kpi" />
-        <div className="xl:col-span-4">
+        <div className="flex items-end">
           <ActionButton pendingLabel="Menghitung..." tone="light">Hitung simulasi uang</ActionButton>
         </div>
+        <DashboardTabQueryField value="kpi" />
       </form>
       {data.simulationRows.length === 0 ? (
         <EmptyState
@@ -984,14 +1001,14 @@ function EmployeeOvertimePanel({ data }: { data: EmployeeDashboardData }) {
 
 function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <MonitoringFilterForm data={data} />
       <div className="grid gap-4 xl:grid-cols-2">
-        <article className="rounded-[24px] border border-line bg-surface p-5">
+        <article className="rounded-[24px] border border-line bg-surface p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-lg font-semibold text-foreground">Monitoring jam lembur</p>
-              <p className="mt-2 text-sm leading-7 text-muted">
+              <p className="mt-1.5 text-sm leading-6 text-muted">
                 Menampilkan jam check-out dan total lembur sesuai periode bulan yang sedang dipilih.
               </p>
             </div>
@@ -999,7 +1016,7 @@ function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
               {data.selectedMonitoringTotalLabel} {formatHours(data.overtimeMonthlyTotalHours)}
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3.5">
             <OvertimeTable
               rows={data.overtimeRows}
               periodTotalLabel={data.selectedMonitoringTotalLabel}
@@ -1008,11 +1025,11 @@ function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
           </div>
         </article>
 
-        <article className="rounded-[24px] border border-line bg-surface p-5">
+        <article className="rounded-[24px] border border-line bg-surface p-4 md:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-lg font-semibold text-foreground">Monitoring pekerjaan add-on</p>
-              <p className="mt-2 text-sm leading-7 text-muted">
+              <p className="mt-1.5 text-sm leading-6 text-muted">
                 Menampilkan jenis add-on, jumlah per hari, dan total add-on untuk periode yang sama.
               </p>
             </div>
@@ -1020,7 +1037,7 @@ function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
               {data.selectedMonitoringTotalLabel} {data.addonMonthlyTotalQuantity}
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-3.5">
             <AddonTable
               rows={data.addonRows}
               periodTotalLabel={data.selectedMonitoringTotalLabel}
@@ -1161,7 +1178,7 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
   const isKpiTab = data.activeTab === "kpi";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <OwnerTabNavigation activeTab={data.activeTab} />
 
       {isDailyTab ? (
@@ -1184,7 +1201,7 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
             </div>
           </CardSection>
 
-          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
             <CardSection title="Overview absensi hari ini" description="Warna hijau menandakan on time, merah untuk terlambat, dan kuning untuk OFF.">
               <AttendanceTable rows={data.attendanceToday} emptyDescription="Data absensi akan muncul di sini setelah tim mulai check-in atau menandai OFF." />
             </CardSection>
