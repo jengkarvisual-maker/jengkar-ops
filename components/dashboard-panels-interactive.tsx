@@ -784,15 +784,17 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
     <div className="space-y-4">
       <form
         action="/dashboard"
-        className="grid gap-3 rounded-[24px] border border-line bg-surface p-4 md:p-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(280px,0.9fr)_auto] lg:items-end"
+        className="grid gap-3 rounded-[24px] border border-line bg-surface p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)] xl:items-end"
       >
-        <MonthSelectField
-          defaultValue={data.selectedLockedKpiMonth?.key}
-          label="Periode KPI final"
-          name="lockedMonth"
-          options={data.lockedKpiMonthOptions}
-        />
-        <div className="rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
+        <div className="min-w-0">
+          <MonthSelectField
+            defaultValue={data.selectedLockedKpiMonth?.key}
+            label="Periode KPI final"
+            name="lockedMonth"
+            options={data.lockedKpiMonthOptions}
+          />
+        </div>
+        <div className="min-w-0 rounded-[20px] border border-line bg-white px-4 py-3.5 text-sm leading-6 text-muted">
           {data.selectedLockedKpiMonth ? (
             <>
               <p className="font-semibold text-foreground">{data.selectedLockedKpiMonth.label}</p>
@@ -805,7 +807,7 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
             <p>Pilih periode KPI yang sudah dikunci untuk melihat nilai finalnya.</p>
           )}
         </div>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3 xl:col-span-2">
           <ActionButton pendingLabel="Memuat..." tone="light">Tampilkan KPI final</ActionButton>
           {data.selectedLockedKpiMonth ? (
             <a
