@@ -285,27 +285,6 @@ function buildMonthKey(year: number, month: number) {
   return `${year}-${month}`;
 }
 
-function parseMonthKey(monthKey?: string | null) {
-  if (!monthKey) {
-    return null;
-  }
-
-  const matched = monthKey.trim().match(/^(\d{4})-(\d{1,2})$/);
-
-  if (!matched) {
-    return null;
-  }
-
-  const year = Number(matched[1]);
-  const month = Number(matched[2]);
-
-  if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) {
-    return null;
-  }
-
-  return { year, month };
-}
-
 function compareYearMonth(
   left: {
     year: number;

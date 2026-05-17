@@ -66,16 +66,12 @@ export function CompletedProgressRecapClient({
   rows,
 }: CompletedProgressRecapClientProps) {
   const router = useRouter();
-  const [localRows, setLocalRows] = useState(rows);
+  const [optimisticRows, setOptimisticRows] = useState<CompletedProgressRecapRow[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isBulkPending, setIsBulkPending] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setLocalRows(rows);
-  }, [rows]);
 
   useEffect(() => {
     function handleUpsert(event: Event) {
@@ -94,7 +90,7 @@ export function CompletedProgressRecapClient({
         nextIds.delete(detail.id);
         return nextIds;
       });
-      setLocalRows((currentRows) => [
+      setOptimisticRows((currentRows) => [
         detail,
         ...currentRows.filter((row) => row.id !== detail.id),
       ]);
@@ -107,9 +103,23 @@ export function CompletedProgressRecapClient({
     };
   }, []);
 
+  const mergedRows = useMemo(() => {
+    const rowMap = new Map<string, CompletedProgressRecapRow>();
+
+    rows.forEach((row) => {
+      rowMap.set(row.id, row);
+    });
+
+    optimisticRows.forEach((row) => {
+      rowMap.set(row.id, row);
+    });
+
+    return Array.from(rowMap.values());
+  }, [optimisticRows, rows]);
+
   const sortedRows = useMemo(
-    () => localRows.filter((row) => !hiddenIds.has(row.id)),
-    [hiddenIds, localRows],
+    () => mergedRows.filter((row) => !hiddenIds.has(row.id)),
+    [hiddenIds, mergedRows],
   );
   const hasRows = sortedRows.length > 0;
 
@@ -149,7 +159,7 @@ export function CompletedProgressRecapClient({
     const previousHiddenIds = new Set(hiddenIds);
     setHiddenIds((currentIds) => {
       const nextIds = new Set(currentIds);
-      for (const row of localRows) {
+      for (const row of mergedRows) {
         nextIds.add(row.id);
       }
       return nextIds;

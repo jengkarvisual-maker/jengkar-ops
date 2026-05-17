@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -33,27 +33,48 @@ function EmptyState({
 
 export function EmployeeAddonPanelClient({
   initialRows,
-  initialTotalQuantity,
   monthLabel,
 }: EmployeeAddonPanelClientProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
-  const [rows, setRows] = useState(initialRows);
-  const [monthlyTotalQuantity, setMonthlyTotalQuantity] = useState(initialTotalQuantity);
+  const [optimisticRows, setOptimisticRows] = useState<EmployeeAddonMutationRow[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const hasRows = rows.length > 0;
   const quantityOptions = useMemo(
     () => Array.from({ length: 10 }, (_, index) => index + 1),
     [],
   );
 
-  useEffect(() => {
-    setRows(initialRows);
-    setMonthlyTotalQuantity(initialTotalQuantity);
-  }, [initialRows, initialTotalQuantity]);
+  const rows = useMemo(() => {
+    const seen = new Set<string>();
+
+    return [...optimisticRows, ...initialRows].filter((row) => {
+      if (seen.has(row.id)) {
+        return false;
+      }
+
+      seen.add(row.id);
+      return true;
+    });
+  }, [initialRows, optimisticRows]);
+
+  const monthlyTotalQuantity = useMemo(() => {
+    const quantities = new Map<string, number>();
+
+    initialRows.forEach((row) => {
+      quantities.set(row.id, row.addonQuantity);
+    });
+
+    optimisticRows.forEach((row) => {
+      quantities.set(row.id, row.addonQuantity);
+    });
+
+    return Array.from(quantities.values()).reduce((sum, value) => sum + value, 0);
+  }, [initialRows, optimisticRows]);
+
+  const hasRows = rows.length > 0;
 
   async function handleSubmit(formData: FormData) {
     setFeedback(null);
@@ -67,8 +88,10 @@ export function EmployeeAddonPanelClient({
       return;
     }
 
-    setRows((currentRows) => [result.row, ...currentRows]);
-    setMonthlyTotalQuantity((currentValue) => currentValue + result.row.addonQuantity);
+    setOptimisticRows((currentRows) => [
+      result.row,
+      ...currentRows.filter((row) => row.id !== result.row.id),
+    ]);
     setFeedback(result.message);
     formRef.current?.reset();
 

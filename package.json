@@ -24,9 +24,6 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@supabase/ssr": "^0.10.2",

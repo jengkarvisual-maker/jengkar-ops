@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 type BeforeInstallPromptEvent = Event & {
@@ -31,25 +32,21 @@ function isStandaloneMode() {
 export function PwaInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(true);
-  const [isStandalone, setIsStandalone] = useState(true);
-  const [isIos, setIsIos] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    return window.localStorage.getItem(DISMISS_KEY) === "1";
+  });
+  const [isStandalone] = useState(() => isStandaloneMode());
+  const [isIos] = useState(() => isIosDevice());
 
   useEffect(() => {
-    const nextStandalone = isStandaloneMode();
-    const nextIos = isIosDevice();
-    const wasDismissed =
-      typeof window !== "undefined" &&
-      window.localStorage.getItem(DISMISS_KEY) === "1";
-
-    setIsStandalone(nextStandalone);
-    setIsIos(nextIos);
-    setDismissed(Boolean(wasDismissed));
-
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
-      setDismissed(Boolean(wasDismissed));
+      setDismissed(false);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -92,7 +89,7 @@ export function PwaInstallBanner() {
   return (
     <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-3xl border border-line bg-panel/95 p-4 shadow-[var(--shadow-soft)] backdrop-blur">
       <div className="flex items-start gap-3">
-        <img
+        <Image
           alt="Icon HARI INI NGAPAIN"
           className="mt-0.5 h-12 w-12 rounded-2xl border border-line object-cover"
           height={48}

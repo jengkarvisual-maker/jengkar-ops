@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/login-form";
@@ -22,7 +23,7 @@ export default async function LoginPage() {
     <main className="ui-page-shell flex items-center justify-center">
       <section className="ui-panel w-full max-w-4xl p-6 md:p-8">
         <div className="flex flex-col items-center text-center">
-          <img
+          <Image
             alt="Logo Rumah Jengkar"
             className="h-[88px] w-[88px] object-contain md:h-[96px] md:w-[96px]"
             height={100}

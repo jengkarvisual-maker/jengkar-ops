@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -243,13 +243,31 @@ export function ManagerProgressList({
   dashboardTab?: "daily" | "addon" | "kpi";
 }) {
   const router = useRouter();
-  const [localRows, setLocalRows] = useState(rows);
+  const [optimisticRows, setOptimisticRows] = useState<ManagerProgressMutationRow[]>([]);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"save" | "close" | null>(null);
   const [isPending, startTransition] = useTransition();
   const initialUserId = rows[0]?.userId ?? teamUsers[0]?.id ?? "";
   const [selectedUserId, setSelectedUserId] = useState(initialUserId);
+  const localRows = useMemo(() => {
+    const rowMap = new Map<string, ManagerProgressItem>();
+
+    rows.forEach((row) => {
+      if (!removedIds.has(row.id)) {
+        rowMap.set(row.id, row);
+      }
+    });
+
+    optimisticRows.forEach((row) => {
+      if (!removedIds.has(row.id)) {
+        rowMap.set(row.id, row);
+      }
+    });
+
+    return Array.from(rowMap.values());
+  }, [optimisticRows, removedIds, rows]);
   const filterUsers = useMemo(() => {
     const users: Array<{ id: string; name: string }> = [];
     const seen = new Set<string>();
@@ -280,25 +298,16 @@ export function ManagerProgressList({
 
     return users;
   }, [localRows, teamUsers]);
-  const selectedUser = filterUsers.find((user) => user.id === selectedUserId) ?? filterUsers[0];
+  const activeSelectedUserId =
+    filterUsers.some((user) => user.id === selectedUserId)
+      ? selectedUserId
+      : (filterUsers[0]?.id ?? "");
+  const selectedUser =
+    filterUsers.find((user) => user.id === activeSelectedUserId) ?? filterUsers[0];
   const selectedRows = useMemo(
     () => localRows.filter((row) => row.userId === selectedUser?.id),
     [localRows, selectedUser?.id],
   );
-
-  useEffect(() => {
-    setLocalRows(rows);
-  }, [rows]);
-
-  useEffect(() => {
-    if (filterUsers.length === 0) {
-      return;
-    }
-
-    if (!filterUsers.some((user) => user.id === selectedUserId)) {
-      setSelectedUserId(filterUsers[0].id);
-    }
-  }, [filterUsers, selectedUserId]);
 
   function toCompletedRow(row: ManagerProgressMutationRow): CompletedProgressRecapRow {
     return {
@@ -335,16 +344,36 @@ export function ManagerProgressList({
     }
 
     if (result.movedToCompleted) {
-      setLocalRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
+      setRemovedIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.add(result.row.id);
+        return nextIds;
+      });
+      setOptimisticRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
       window.dispatchEvent(
         new CustomEvent<CompletedProgressRecapRow>(COMPLETED_PROGRESS_UPSERT_EVENT, {
           detail: toCompletedRow(result.row),
         }),
       );
     } else {
-      setLocalRows((currentRows) =>
-        currentRows.map((row) => (row.id === result.row.id ? result.row : row)),
-      );
+      setRemovedIds((currentIds) => {
+        if (!currentIds.has(result.row.id)) {
+          return currentIds;
+        }
+
+        const nextIds = new Set(currentIds);
+        nextIds.delete(result.row.id);
+        return nextIds;
+      });
+      setOptimisticRows((currentRows) => {
+        const existing = currentRows.some((row) => row.id === result.row.id);
+
+        if (existing) {
+          return currentRows.map((row) => (row.id === result.row.id ? result.row : row));
+        }
+
+        return [result.row, ...currentRows];
+      });
     }
 
     setPendingRowId(null);
@@ -367,7 +396,12 @@ export function ManagerProgressList({
       return;
     }
 
-    setLocalRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
+    setRemovedIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(result.row.id);
+      return nextIds;
+    });
+    setOptimisticRows((currentRows) => currentRows.filter((row) => row.id !== result.row.id));
     window.dispatchEvent(
       new CustomEvent<CompletedProgressRecapRow>(COMPLETED_PROGRESS_UPSERT_EVENT, {
         detail: toCompletedRow(result.row),
@@ -391,7 +425,7 @@ export function ManagerProgressList({
           <select
             className="ui-select md:max-w-md"
             onChange={(event) => setSelectedUserId(event.target.value)}
-            value={selectedUser?.id ?? ""}
+            value={activeSelectedUserId}
           >
             {filterUsers.map((user) => (
               <option key={user.id} value={user.id}>{user.name}</option>

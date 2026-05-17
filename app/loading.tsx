@@ -1,10 +1,12 @@
+import Image from "next/image";
+
 export default function Loading() {
   return (
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#090909] px-6 py-10 text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.04),transparent_22%)]" />
       <div className="relative flex w-full max-w-sm flex-col items-center text-center">
         <div className="splash-pulse rounded-[36px] border border-white/10 bg-white/6 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur">
-          <img
+          <Image
             alt="HARI INI NGAPAIN"
             className="h-28 w-28 rounded-[28px] object-cover"
             height={112}

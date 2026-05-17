@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const INSTALL_GUIDES = [
   {
     title: "Android",
@@ -37,7 +39,7 @@ export function InstallGuide() {
   return (
     <section className="mx-auto mt-8 max-w-3xl rounded-[30px] border border-line bg-surface/90 p-5 shadow-[var(--shadow-soft)] md:p-6">
       <div className="flex items-center gap-3">
-        <img
+        <Image
           alt="Icon HARI INI NGAPAIN"
           className="h-14 w-14 rounded-[18px] border border-line object-cover"
           height={56}
