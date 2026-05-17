@@ -1,5 +1,6 @@
 ﻿import type { ReactNode } from "react";
 import { AttendanceStatus, StopCardStatus } from "@prisma/client";
+import Link from "next/link";
 
 import {
   checkInAction,
@@ -15,8 +16,10 @@ import {
 } from "@/app/dashboard/actions";
 import { CompletedProgressRecapClient } from "@/components/completed-progress-recap-client";
 import { EmployeeAddonPanelClient } from "@/components/employee-addon-panel-client";
+import { LockKpiMonthForm } from "@/components/lock-kpi-month-form";
 import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
 import { FormSubmitButton } from "@/components/form-submit-button";
+import { OwnerStopCardHideForm } from "@/components/owner-stop-card-hide-form";
 import { JOB_OPTIONS } from "@/lib/job-catalog";
 import {
   formatCurrency,
@@ -204,7 +207,7 @@ function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
               <Link
                 className={`button-press inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-foreground text-background shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
+                    ? "bg-foreground text-white shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
                     : "text-foreground/70 hover:text-foreground"
                 }`}
                 href={`/dashboard?tab=${tab.key}`}
@@ -356,9 +359,11 @@ function AttendanceTable({ rows, emptyDescription }: { rows: OwnerDashboardData[
 function OvertimeTable({
   rows,
   emptyDescription,
+  periodTotalLabel = "Total bulan ini",
 }: {
   rows: OwnerDashboardData["overtimeRows"] | EmployeeDashboardData["overtimeRows"];
   emptyDescription: string;
+  periodTotalLabel?: string;
 }) {
   if (rows.length === 0) {
     return <EmptyState description={emptyDescription} title="Belum ada jam lembur" />;
@@ -373,7 +378,7 @@ function OvertimeTable({
             <th className="px-4 py-3 font-semibold">Tanggal</th>
             <th className="px-4 py-3 font-semibold">Check-out</th>
             <th className="px-4 py-3 font-semibold">Jam lembur</th>
-            <th className="px-4 py-3 font-semibold">Total bulan ini</th>
+            <th className="px-4 py-3 font-semibold">{periodTotalLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -400,9 +405,11 @@ function OvertimeTable({
 function AddonTable({
   rows,
   emptyDescription,
+  periodTotalLabel = "Total bulan ini",
 }: {
   rows: OwnerDashboardData["addonRows"] | EmployeeDashboardData["addonRows"];
   emptyDescription: string;
+  periodTotalLabel?: string;
 }) {
   if (rows.length === 0) {
     return <EmptyState description={emptyDescription} title="Belum ada pekerjaan add-on" />;
@@ -417,7 +424,7 @@ function AddonTable({
             <th className="px-4 py-3 font-semibold">Tanggal</th>
             <th className="px-4 py-3 font-semibold">Jenis add-on</th>
             <th className="px-4 py-3 font-semibold">Jumlah</th>
-            <th className="px-4 py-3 font-semibold">Total bulan ini</th>
+            <th className="px-4 py-3 font-semibold">{periodTotalLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -514,21 +521,68 @@ function MonthlyKpiTable({ rows, emptyDescription }: { rows: OwnerDashboardData[
 }
 
 function OwnerMonthlyKpiStatus({
+  monthOptions,
+  selectedMonthKey,
   periodLabel,
   isFinal,
+  lock,
 }: {
+  monthOptions: OwnerDashboardData["kpiMonthOptions"];
+  selectedMonthKey: string;
   periodLabel: string;
   isFinal: boolean;
+  lock: OwnerDashboardData["selectedKpiMonthLock"];
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[20px] border border-line bg-surface px-4 py-4">
-      <p className="text-sm font-semibold text-foreground">Periode yang ditampilkan: {periodLabel}</p>
-      <TitleStatusChip label={isFinal ? "Final" : "Belum final"} tone={isFinal ? "success" : "pending"} />
-      <p className="text-sm text-muted">
-        {isFinal
-          ? "Nilai KPI periode ini sudah dikunci dan tidak akan berubah lagi."
-          : "Nilai KPI periode ini masih dinamis dan bisa berubah mengikuti update absensi atau progress."}
-      </p>
+    <div className="mb-5 space-y-4 rounded-[20px] border border-line bg-surface px-4 py-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold text-foreground">Periode yang ditampilkan: {periodLabel}</p>
+        <TitleStatusChip label={isFinal ? "Final" : "Belum final"} tone={isFinal ? "success" : "pending"} />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[0.34fr_0.41fr_0.25fr]">
+        <form action="/dashboard" className="contents">
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-foreground">Pilih periode KPI</span>
+            <select className="ui-select" defaultValue={selectedMonthKey} name="kpiMonth">
+              {monthOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <DashboardTabQueryField value="kpi" />
+          <div className="flex flex-wrap items-end gap-3 xl:justify-end">
+            <ActionButton pendingLabel="Memuat..." tone="light">
+              Tampilkan periode
+            </ActionButton>
+          </div>
+        </form>
+        <div className="rounded-[20px] border border-line bg-white px-4 py-4 text-sm leading-7 text-muted">
+          {isFinal && lock ? (
+            <>
+              <p className="font-semibold text-foreground">KPI periode ini sudah dikunci</p>
+              <p className="mt-2">
+                Dikunci {formatDateTime(lock.lockedAt)} oleh {lock.lockedByName}. Nilai final tidak
+                akan berubah otomatis lagi.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-foreground">KPI periode ini masih dinamis</p>
+              <p className="mt-2">
+                Nilai masih bisa berubah mengikuti update absensi, progres, dan sync KPI sampai
+                owner menguncinya.
+              </p>
+            </>
+          )}
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          {selectedMonthKey ? (
+            <LockKpiMonthForm disabled={isFinal} kpiMonth={selectedMonthKey} />
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -709,7 +763,7 @@ function LockedKpiValuesPanel({ data }: { data: OwnerDashboardData }) {
     return (
       <EmptyState
         title="Belum ada KPI final yang bisa dilihat"
-        description="Setelah owner mengunci KPI dari menu Pengaturan, nilai final tiap karyawan akan tampil di dashboard ini."
+        description="Setelah owner mengunci KPI dari tab KPI dashboard ini, nilai final tiap karyawan akan tampil di sini."
       />
     );
   }
@@ -848,7 +902,7 @@ function LockedKpiStatusCard({ rows }: { rows: OwnerDashboardData["lockedKpiMont
         </div>
         <p className="mt-4 text-lg font-semibold text-foreground">Periode KPI final belum ada</p>
         <p className="mt-2 text-sm leading-7 text-muted">
-          Setelah owner mengunci KPI dari menu Pengaturan, periode final akan muncul di sini agar
+          Setelah owner mengunci KPI dari tab KPI dashboard ini, periode final akan muncul di sini agar
           mudah dipantau dari dashboard.
         </p>
       </article>
@@ -917,6 +971,7 @@ function EmployeeOvertimePanel({ data }: { data: EmployeeDashboardData }) {
           <div className="mt-4">
             <OvertimeTable
               rows={data.overtimeRows}
+              periodTotalLabel="Total bulan ini"
               emptyDescription="Belum ada hari dengan check-out di atas jam 17.00 WIB pada bulan ini."
             />
           </div>
@@ -936,17 +991,18 @@ function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
             <div>
               <p className="text-lg font-semibold text-foreground">Monitoring jam lembur</p>
               <p className="mt-2 text-sm leading-7 text-muted">
-                Menampilkan jam check-out dan total lembur bulanan berdasarkan filter yang sedang aktif.
+                Menampilkan jam check-out dan total lembur sesuai periode bulan yang sedang dipilih.
               </p>
             </div>
             <div className="rounded-full border border-success/15 bg-success/10 px-3 py-1 text-xs font-semibold text-success">
-              Total {formatHours(data.overtimeMonthlyTotalHours)}
+              {data.selectedMonitoringTotalLabel} {formatHours(data.overtimeMonthlyTotalHours)}
             </div>
           </div>
           <div className="mt-4">
             <OvertimeTable
               rows={data.overtimeRows}
-              emptyDescription="Belum ada data jam lembur untuk filter bulan atau karyawan yang dipilih."
+              periodTotalLabel={data.selectedMonitoringTotalLabel}
+              emptyDescription="Belum ada data lembur pada periode ini."
             />
           </div>
         </article>
@@ -956,17 +1012,18 @@ function OwnerWorkTrackingPanel({ data }: { data: OwnerDashboardData }) {
             <div>
               <p className="text-lg font-semibold text-foreground">Monitoring pekerjaan add-on</p>
               <p className="mt-2 text-sm leading-7 text-muted">
-                Menampilkan jenis add-on, jumlah per hari, dan total add-on bulan berjalan untuk filter yang sama.
+                Menampilkan jenis add-on, jumlah per hari, dan total add-on untuk periode yang sama.
               </p>
             </div>
             <div className="rounded-full border border-accent/15 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
-              Total {data.addonMonthlyTotalQuantity}
+              {data.selectedMonitoringTotalLabel} {data.addonMonthlyTotalQuantity}
             </div>
           </div>
           <div className="mt-4">
             <AddonTable
               rows={data.addonRows}
-              emptyDescription="Belum ada input pekerjaan add-on untuk filter bulan atau karyawan yang dipilih."
+              periodTotalLabel={data.selectedMonitoringTotalLabel}
+              emptyDescription="Belum ada input pekerjaan add-on pada periode ini."
             />
           </div>
         </article>
@@ -1082,8 +1139,11 @@ function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) 
                 <option value={StopCardStatus.SELESAI}>Selesai</option>
               </select>
             </label>
-            <div>
+            <div className="flex flex-wrap gap-3">
               <ActionButton pendingLabel="Menyimpan..." tone="light">Simpan status</ActionButton>
+              {row.status === StopCardStatus.SELESAI ? (
+                <OwnerStopCardHideForm stopCardId={row.id} />
+              ) : null}
             </div>
           </form>
         </article>
@@ -1175,7 +1235,7 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <StatCard
-              description="Status final KPI bulan berjalan berdasarkan periode yang sudah dikunci."
+              description={`Status final KPI untuk ${data.monthlyKpiPeriodLabel}.`}
               label="Status KPI"
               tone={data.monthlyKpiIsFinal ? "success" : "pending"}
               value={data.monthlyKpiIsFinal ? "Final" : "Dinamis"}
@@ -1204,6 +1264,9 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
 
           <CardSection title="KPI bulanan tim" description="Owner dapat memantau KPI bulanan seluruh tim dari skor kinerja dan disiplin yang sudah dihitung.">
             <OwnerMonthlyKpiStatus
+              lock={data.selectedKpiMonthLock}
+              monthOptions={data.kpiMonthOptions}
+              selectedMonthKey={data.selectedKpiMonth?.key ?? ""}
               isFinal={data.monthlyKpiIsFinal}
               periodLabel={data.monthlyKpiPeriodLabel}
             />
@@ -1273,5 +1336,3 @@ function EmployeePanel({ data }: { data: EmployeeDashboardData }) {
 }
 
 export const DashboardPanels = { Owner: OwnerPanel, Admin: AdminPanel, Employee: EmployeePanel };
-
-import Link from "next/link";

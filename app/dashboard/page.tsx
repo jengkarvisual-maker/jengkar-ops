@@ -61,6 +61,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const activeTab = readOwnerDashboardTab(resolvedSearchParams);
     const data = await getOwnerDashboardData({
       tab: activeTab,
+      kpiMonthKey: readSingleParam(resolvedSearchParams, "kpiMonth"),
       lockedMonthKey: readSingleParam(resolvedSearchParams, "lockedMonth"),
       monitoringMonthKey: readSingleParam(resolvedSearchParams, "trackingMonth"),
       monitoringUserId: readSingleParam(resolvedSearchParams, "trackingUser"),

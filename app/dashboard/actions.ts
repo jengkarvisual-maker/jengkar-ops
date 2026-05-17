@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@/lib/auth";
+import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
@@ -190,18 +191,35 @@ function parseDashboardTabValue(value: FormDataEntryValue | null | undefined): D
   return normalized === "addon" || normalized === "kpi" ? normalized : normalized === "daily" ? normalized : null;
 }
 
-function redirectWithFeedback(type: FeedbackType, message: string, tab?: DashboardTab | null): never {
+function redirectWithDashboardContext(
+  type: FeedbackType,
+  message: string,
+  options?: {
+    tab?: DashboardTab | null;
+    params?: Record<string, string | null | undefined>;
+  },
+): never {
   const params = new URLSearchParams({
     feedbackType: type,
     feedbackMessage: message,
     feedbackAt: Date.now().toString(),
   });
 
-  if (tab) {
-    params.set("tab", tab);
+  if (options?.tab) {
+    params.set("tab", options.tab);
   }
 
+  Object.entries(options?.params ?? {}).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+
   redirect(`/dashboard?${params.toString()}`);
+}
+
+function redirectWithFeedback(type: FeedbackType, message: string, tab?: DashboardTab | null): never {
+  return redirectWithDashboardContext(type, message, { tab });
 }
 
 function parseRequiredString(value: FormDataEntryValue | null, fieldLabel: string) {
@@ -298,6 +316,28 @@ function parseYear(value: FormDataEntryValue | null) {
   }
 
   return year;
+}
+
+function parseMonthKey(value: FormDataEntryValue | null, fieldLabel: string) {
+  const normalized = String(value ?? "").trim();
+  const match = /^(\d{4})-(\d{1,2})$/.exec(normalized);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  if (Number.isNaN(year) || Number.isNaN(month) || year < 2000 || year > 2100 || month < 1 || month > 12) {
+    redirectWithFeedback("error", `${fieldLabel} belum valid.`);
+  }
+
+  return {
+    key: normalized,
+    year,
+    month,
+  };
 }
 
 async function ensureAssignableUser(userId: string) {
@@ -515,6 +555,61 @@ export async function updateStopCardStatusAction(formData: FormData) {
 
   refreshDashboard();
   redirectWithFeedback("success", "Status STOP CARD berhasil diperbarui.", dashboardTab);
+}
+
+export async function hideStopCardFromDashboardAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
+
+  if (user.role !== UserRole.OWNER) {
+    redirectWithFeedback(
+      "error",
+      "Hanya Owner yang bisa menyembunyikan STOP CARD dari dashboard.",
+      dashboardTab,
+    );
+  }
+
+  const stopCardId = parseRequiredString(formData.get("stopCardId"), "ID STOP CARD");
+  const existing = await prisma.stopCard.findUnique({
+    where: {
+      id: stopCardId,
+    },
+    select: {
+      id: true,
+      status: true,
+      hiddenFromOwnerDashboard: true,
+    },
+  });
+
+  if (!existing) {
+    redirectWithFeedback("error", "STOP CARD tidak ditemukan.", dashboardTab);
+  }
+
+  if (existing.hiddenFromOwnerDashboard) {
+    redirectWithFeedback("success", "STOP CARD sudah disembunyikan dari dashboard.", dashboardTab);
+  }
+
+  if (existing.status !== StopCardStatus.SELESAI) {
+    redirectWithFeedback(
+      "error",
+      "STOP CARD hanya bisa disembunyikan setelah status owner menjadi Selesai.",
+      dashboardTab,
+    );
+  }
+
+  await prisma.stopCard.update({
+    where: {
+      id: stopCardId,
+    },
+    data: {
+      hiddenFromOwnerDashboard: true,
+      hiddenFromOwnerDashboardAt: new Date(),
+      hiddenFromOwnerDashboardByUserId: user.id,
+    },
+  });
+
+  refreshDashboard();
+  redirectWithFeedback("success", "STOP CARD berhasil disembunyikan dari dashboard.", dashboardTab);
 }
 
 export async function createProgressAction(formData: FormData) {
@@ -1305,4 +1400,86 @@ export async function syncCurrentMonthKpiAction(formData: FormData) {
   await syncAllKpisForMonth(year, month);
   refreshDashboard();
   redirectWithFeedback("success", "Sinkron KPI bulan berjalan selesai dijalankan.", dashboardTab);
+}
+
+export async function lockKpiMonthAction(formData: FormData) {
+  const user = await requireAuthenticatedUser();
+  const dashboardTab = parseDashboardTabValue(formData.get("dashboardTab"));
+
+  if (user.role !== UserRole.OWNER) {
+    redirectWithFeedback("error", "Hanya Owner yang bisa mengunci KPI final.", dashboardTab);
+  }
+
+  const monthSelection = parseMonthKey(formData.get("kpiMonth"), "Periode KPI");
+
+  if (!monthSelection) {
+    redirectWithFeedback("error", "Pilih periode KPI yang ingin dikunci.", dashboardTab);
+  }
+
+  const existingLock = await prisma.kpiMonthLock.findUnique({
+    where: {
+      year_month: {
+        year: monthSelection.year,
+        month: monthSelection.month,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingLock) {
+    refreshDashboard();
+    redirectWithDashboardContext("success", "KPI periode ini sudah dikunci sebelumnya.", {
+      tab: "kpi",
+      params: {
+        kpiMonth: monthSelection.key,
+      },
+    });
+  }
+
+  await syncAllKpisForMonth(monthSelection.year, monthSelection.month);
+
+  const rowCount = await prisma.kpiMonthly.count({
+    where: {
+      year: monthSelection.year,
+      month: monthSelection.month,
+      user: {
+        role: UserRole.KARYAWAN,
+        email: {
+          notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+        },
+      },
+    },
+  });
+
+  if (rowCount === 0) {
+    redirectWithDashboardContext(
+      "error",
+      "Belum ada nilai KPI untuk periode yang dipilih, jadi belum bisa dikunci.",
+      {
+        tab: "kpi",
+        params: {
+          kpiMonth: monthSelection.key,
+        },
+      },
+    );
+  }
+
+  await prisma.kpiMonthLock.create({
+    data: {
+      year: monthSelection.year,
+      month: monthSelection.month,
+      lockedByUserId: user.id,
+    },
+  });
+
+  refreshDashboard();
+  redirectWithDashboardContext("success", "KPI final periode terpilih berhasil dikunci.", {
+    tab: "kpi",
+    params: {
+      kpiMonth: monthSelection.key,
+      lockedMonth: monthSelection.key,
+    },
+  });
 }

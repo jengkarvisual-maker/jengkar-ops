@@ -412,8 +412,11 @@ function createEmptyOwnerDashboardData(
     activeTab,
     teamSize: 0,
     teamUsers: [],
+    kpiMonthOptions: [],
+    selectedKpiMonth: null,
     monthlyKpiPeriodLabel: formatMonthYear(currentMonth, currentYear),
     monthlyKpiIsFinal: false,
+    selectedKpiMonthLock: null,
     lockedKpiMonthOptions: [],
     selectedLockedKpiMonth: null,
     selectedLockedMonthlyKpis: [],
@@ -443,6 +446,7 @@ function createEmptyOwnerDashboardData(
     monitoringMonthOptions: [],
     selectedMonitoringMonthKey: "",
     selectedMonitoringMonthLabel: "",
+    selectedMonitoringTotalLabel: "Total bulan ini",
     selectedMonitoringUserId: "",
     selectedMonitoringUserName: null,
     overtimeRows: [],
@@ -454,6 +458,7 @@ function createEmptyOwnerDashboardData(
 }
 
 async function buildOwnerDashboardData(input?: {
+  kpiMonthKey?: string;
   tab?: OwnerDashboardTab;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
@@ -531,6 +536,9 @@ async function buildOwnerDashboardData(input?: {
         },
       }),
       prisma.stopCard.findMany({
+        where: {
+          hiddenFromOwnerDashboard: false,
+        },
         orderBy: {
           createdAt: "desc",
         },
@@ -602,6 +610,10 @@ async function buildOwnerDashboardData(input?: {
       monitoringMonthOptions,
       selectedMonitoringMonthKey: selectedMonitoringMonth.key,
       selectedMonitoringMonthLabel: selectedMonitoringMonth.label,
+      selectedMonitoringTotalLabel:
+        selectedMonitoringMonth.year === currentYear && selectedMonitoringMonth.month === currentMonth
+          ? "Total bulan ini"
+          : "Total periode ini",
       selectedMonitoringUserId: selectedMonitoringUser?.id ?? "",
       selectedMonitoringUserName: selectedMonitoringUser?.name ?? null,
       overtimeRows: overtimeSummary.rows,
@@ -611,26 +623,9 @@ async function buildOwnerDashboardData(input?: {
     };
   }
 
-  const [teamUsers, monthlyRows, yearlyRows, allMonthlyPeriodRows, lockedKpiRows, finance] =
+  const [teamUsers, yearlyRows, allMonthlyPeriodRows, lockedKpiRows, finance] =
     await Promise.all([
       getAssignableUsers(),
-      prisma.kpiMonthly.findMany({
-        where: {
-          year: currentYear,
-          month: currentMonth,
-          user: {
-            role: UserRole.KARYAWAN,
-            email: {
-              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-            },
-          },
-        },
-        select: monthlyKpiRowSelect,
-        orderBy: {
-          totalScore: "desc",
-        },
-        take: 12,
-      }),
       prisma.kpiYearly.findMany({
         where: {
           year: currentYear,
@@ -700,6 +695,38 @@ async function buildOwnerDashboardData(input?: {
       }),
     ]);
 
+  const kpiMonthOptions = buildMonthOptions([
+    ...allMonthlyPeriodRows,
+    {
+      year: currentYear,
+      month: currentMonth,
+    },
+  ]);
+  const defaultKpiMonth =
+    findMonthOption(kpiMonthOptions, buildMonthKey(currentYear, currentMonth)) ??
+    kpiMonthOptions[0] ??
+    null;
+  const selectedKpiMonth = findMonthOption(kpiMonthOptions, input?.kpiMonthKey) ?? defaultKpiMonth;
+  const monthlyRows = selectedKpiMonth
+    ? await prisma.kpiMonthly.findMany({
+        where: {
+          year: selectedKpiMonth.year,
+          month: selectedKpiMonth.month,
+          user: {
+            role: UserRole.KARYAWAN,
+            email: {
+              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+            },
+          },
+        },
+        select: monthlyKpiRowSelect,
+        orderBy: {
+          totalScore: "desc",
+        },
+        take: 12,
+      })
+    : [];
+
   const monthlyKpis = sortMonthlyKpisAlphabetically(mapMonthlyKpis(monthlyRows));
   const yearlyKpis = mapYearlyKpis(yearlyRows);
   const bonusPool = finance?.bonusPool ?? 0;
@@ -716,6 +743,11 @@ async function buildOwnerDashboardData(input?: {
   const selectedLockedMonthMeta = selectedLockedMonth
     ? lockedKpiRows.find(
         (row) => row.year === selectedLockedMonth.year && row.month === selectedLockedMonth.month,
+      ) ?? null
+    : null;
+  const selectedKpiMonthMeta = selectedKpiMonth
+    ? lockedKpiRows.find(
+        (row) => row.year === selectedKpiMonth.year && row.month === selectedKpiMonth.month,
       ) ?? null
     : null;
   const selectedLockedMonthlyRows = selectedLockedMonth
@@ -854,10 +886,19 @@ async function buildOwnerDashboardData(input?: {
   return {
     ...baseData,
     teamUsers,
-    monthlyKpiPeriodLabel: formatMonthYear(currentMonth, currentYear),
-    monthlyKpiIsFinal: lockedKpiRows.some(
-      (row) => row.year === currentYear && row.month === currentMonth,
-    ),
+    kpiMonthOptions,
+    selectedKpiMonth,
+    monthlyKpiPeriodLabel: selectedKpiMonth?.label ?? formatMonthYear(currentMonth, currentYear),
+    monthlyKpiIsFinal: Boolean(selectedKpiMonthMeta),
+    selectedKpiMonthLock:
+      selectedKpiMonth && selectedKpiMonthMeta
+        ? ({
+            key: selectedKpiMonth.key,
+            label: selectedKpiMonth.label,
+            lockedAt: selectedKpiMonthMeta.lockedAt,
+            lockedByName: selectedKpiMonthMeta.lockedBy.name,
+          } satisfies LockedKpiSelection)
+        : null,
     lockedKpiMonthOptions,
     selectedLockedKpiMonth:
       selectedLockedMonth && selectedLockedMonthMeta
@@ -909,6 +950,7 @@ async function buildOwnerDashboardData(input?: {
 
 export async function getOwnerDashboardData(input?: {
   tab?: OwnerDashboardTab;
+  kpiMonthKey?: string;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
   monitoringUserId?: string;

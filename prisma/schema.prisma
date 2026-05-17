@@ -46,6 +46,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   attendances   Attendance[]
   stopCards     StopCard[]
+  hiddenStopCards StopCard[]   @relation("StopCardHiddenByOwner")
   dailyProgress DailyProgress[]
   addons        EmployeeAddon[]
   monthlyKpis   KpiMonthly[]
@@ -74,12 +75,17 @@ model StopCard {
   title     String
   content   String
   status    StopCardStatus @default(BARU)
+  hiddenFromOwnerDashboard Boolean @default(false)
+  hiddenFromOwnerDashboardAt DateTime?
+  hiddenFromOwnerDashboardByUserId String?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hiddenFromOwnerDashboardBy User? @relation("StopCardHiddenByOwner", fields: [hiddenFromOwnerDashboardByUserId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+  @@index([hiddenFromOwnerDashboard, status, createdAt])
 }
 
 model DailyProgress {

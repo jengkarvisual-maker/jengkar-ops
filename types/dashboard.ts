@@ -102,6 +102,13 @@ export type LockedKpiSelection = {
   lockedByName: string;
 };
 
+export type KpiPeriodSelection = {
+  key: string;
+  label: string;
+  year: number;
+  month: number;
+};
+
 export type BonusSimulationItem = {
   userId: string;
   name: string;
@@ -139,8 +146,11 @@ export type OwnerDashboardData = {
   activeTab: OwnerDashboardTab;
   teamSize: number;
   teamUsers: DashboardUser[];
+  kpiMonthOptions: DashboardMonthOption[];
+  selectedKpiMonth: KpiPeriodSelection | null;
   monthlyKpiPeriodLabel: string;
   monthlyKpiIsFinal: boolean;
+  selectedKpiMonthLock: LockedKpiSelection | null;
   lockedKpiMonthOptions: DashboardMonthOption[];
   selectedLockedKpiMonth: LockedKpiSelection | null;
   selectedLockedMonthlyKpis: MonthlyKpiItem[];
@@ -170,6 +180,7 @@ export type OwnerDashboardData = {
   monitoringMonthOptions: DashboardMonthOption[];
   selectedMonitoringMonthKey: string;
   selectedMonitoringMonthLabel: string;
+  selectedMonitoringTotalLabel: string;
   selectedMonitoringUserId: string;
   selectedMonitoringUserName: string | null;
   overtimeRows: OvertimeItem[];
