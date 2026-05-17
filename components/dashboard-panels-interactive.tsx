@@ -207,11 +207,12 @@ function OwnerTabNavigation({ activeTab }: { activeTab: OwnerDashboardTab }) {
               <Link
                 className={`button-press inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-foreground text-white shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
+                    ? "bg-foreground !text-white shadow-[0_8px_18px_rgba(17,17,17,0.14)]"
                     : "text-foreground/70 hover:text-foreground"
                 }`}
                 href={`/dashboard?tab=${tab.key}`}
                 key={tab.key}
+                style={isActive ? { color: "#FFFFFF" } : undefined}
               >
                 {tab.label}
               </Link>
@@ -1122,30 +1123,32 @@ function OwnerStopCardList({ rows }: { rows: OwnerDashboardData["stopCards"] }) 
             <span>Masuk {formatDateTime(row.createdAt)}</span>
             <span>Status terakhir {formatDateTime(row.updatedAt)}</span>
           </div>
-          <form action={updateStopCardStatusAction} className="mt-5 flex flex-col gap-3 md:flex-row md:items-end">
-            <input name="stopCardId" type="hidden" value={row.id} />
-            <OwnerDashboardTabField value="daily" />
-            <label className="space-y-2 md:min-w-[240px]">
-              <span className="text-sm font-semibold text-foreground">Status owner</span>
-              <select
-                className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
-                defaultValue={row.status}
-                name="status"
-                required
-              >
-                <option value={StopCardStatus.BARU}>Baru</option>
-                <option value={StopCardStatus.DIBACA}>Dibaca</option>
-                <option value={StopCardStatus.DITINDAKLANJUTI}>Ditindaklanjuti</option>
-                <option value={StopCardStatus.SELESAI}>Selesai</option>
-              </select>
-            </label>
-            <div className="flex flex-wrap gap-3">
-              <ActionButton pendingLabel="Menyimpan..." tone="light">Simpan status</ActionButton>
-              {row.status === StopCardStatus.SELESAI ? (
-                <OwnerStopCardHideForm stopCardId={row.id} />
-              ) : null}
-            </div>
-          </form>
+          <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <form action={updateStopCardStatusAction} className="flex flex-col gap-3 md:flex-row md:items-end">
+              <input name="stopCardId" type="hidden" value={row.id} />
+              <OwnerDashboardTabField value="daily" />
+              <label className="space-y-2 md:min-w-[240px]">
+                <span className="text-sm font-semibold text-foreground">Status owner</span>
+                <select
+                  className="h-11 w-full rounded-2xl border border-line bg-white px-4 text-sm text-foreground"
+                  defaultValue={row.status}
+                  name="status"
+                  required
+                >
+                  <option value={StopCardStatus.BARU}>Baru</option>
+                  <option value={StopCardStatus.DIBACA}>Dibaca</option>
+                  <option value={StopCardStatus.DITINDAKLANJUTI}>Ditindaklanjuti</option>
+                  <option value={StopCardStatus.SELESAI}>Selesai</option>
+                </select>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <ActionButton pendingLabel="Menyimpan..." tone="light">Simpan status</ActionButton>
+              </div>
+            </form>
+            {row.status === StopCardStatus.SELESAI ? (
+              <OwnerStopCardHideForm stopCardId={row.id} />
+            ) : null}
+          </div>
         </article>
       ))}
     </div>
