@@ -43,7 +43,7 @@ export function EmployeeAddonPanelClient({
   const [isPending, startTransition] = useTransition();
 
   const quantityOptions = useMemo(
-    () => Array.from({ length: 10 }, (_, index) => index + 1),
+    () => Array.from({ length: 20 }, (_, index) => index + 1),
     [],
   );
 

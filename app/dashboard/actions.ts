@@ -301,7 +301,7 @@ function parseAddonQuantity(value: FormDataEntryValue | null) {
   const normalized = String(value ?? "").trim();
   const quantity = Number(normalized);
 
-  if (!normalized || Number.isNaN(quantity) || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+  if (!normalized || Number.isNaN(quantity) || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
     return null;
   }
 
@@ -1310,7 +1310,7 @@ export async function saveEmployeeAddonAction(
     if (!addonQuantity) {
       return {
         ok: false,
-        message: "Jumlah pekerjaan add-on harus berupa angka 1 sampai 10.",
+        message: "Jumlah pekerjaan add-on harus berupa angka 1 sampai 20.",
       };
     }
 
