@@ -7,6 +7,7 @@ import {
   calculateYearlyAverage,
   compactYearMonths,
   getAppDateParts,
+  getAppTimeOnDate,
   isSunday,
   getMonthBounds,
   getMonthTimestampBounds,
@@ -19,6 +20,7 @@ type AttendanceScoreRow = {
   date: Date;
   status: AttendanceStatus;
   checkIn: Date | null;
+  checkOut: Date | null;
 };
 
 type ProgressScoreRow = {
@@ -34,6 +36,76 @@ type ProgressScoreRow = {
   canceledAt: Date | null;
 };
 
+const DISCIPLINE_CHECKIN_WEIGHT = 0.55;
+const DISCIPLINE_CHECKOUT_WEIGHT = 0.45;
+
+function getCheckInDisciplineScore(status: AttendanceStatus) {
+  if (status === AttendanceStatus.ONTIME) {
+    return 100;
+  }
+
+  if (status === AttendanceStatus.LATE) {
+    return 70;
+  }
+
+  return 0;
+}
+
+function getCheckOutDisciplineScore(date: Date, checkOut: Date | null) {
+  if (!checkOut) {
+    return null;
+  }
+
+  const schedule = getWorkdaySchedule(date);
+  const [scheduleEndHour, scheduleEndMinute] = schedule.end.split(":").map(Number);
+  const beforeNoonThreshold = getAppTimeOnDate(date, 12, 0, 0);
+  const standardThreshold = getAppTimeOnDate(date, scheduleEndHour, scheduleEndMinute ?? 0, 0);
+  const extendedThreshold = getAppTimeOnDate(date, scheduleEndHour + 1, scheduleEndMinute ?? 0, 0);
+
+  if (checkOut.getTime() > extendedThreshold.getTime()) {
+    return 100;
+  }
+
+  if (checkOut.getTime() > standardThreshold.getTime()) {
+    return 85;
+  }
+
+  if (checkOut.getTime() < beforeNoonThreshold.getTime()) {
+    return 35;
+  }
+
+  return 65;
+}
+
+function calculateAttendanceDayScore(row: AttendanceScoreRow) {
+  const schedule = getWorkdaySchedule(row.date);
+  const status =
+    row.status === AttendanceStatus.OFF
+      ? AttendanceStatus.OFF
+      : resolveAttendanceStatus(row.date, row.checkIn);
+
+  if (schedule.isOff && !row.checkIn) {
+    return null;
+  }
+
+  if (status === AttendanceStatus.OFF && isSunday(row.date)) {
+    return null;
+  }
+
+  if (status === AttendanceStatus.OFF) {
+    return 0;
+  }
+
+  const checkInScore = getCheckInDisciplineScore(status);
+  const checkOutScore = getCheckOutDisciplineScore(row.date, row.checkOut);
+  const weightedScore =
+    checkOutScore === null
+      ? checkInScore
+      : checkInScore * DISCIPLINE_CHECKIN_WEIGHT + checkOutScore * DISCIPLINE_CHECKOUT_WEIGHT;
+
+  return Math.min(100, roundNumber(weightedScore));
+}
+
 function calculateDisciplineScore(rows: AttendanceScoreRow[]) {
   if (rows.length === 0) {
     return 0;
@@ -41,39 +113,14 @@ function calculateDisciplineScore(rows: AttendanceScoreRow[]) {
 
   const summary = rows.reduce(
     (result, row) => {
-      const schedule = getWorkdaySchedule(row.date);
-      const status =
-        row.status === AttendanceStatus.OFF
-          ? AttendanceStatus.OFF
-          : resolveAttendanceStatus(row.date, row.checkIn);
+      const score = calculateAttendanceDayScore(row);
 
-      if (status === AttendanceStatus.OFF && isSunday(row.date)) {
+      if (score === null) {
         return result;
       }
 
-      if (schedule.isOff) {
-        return {
-          total: result.total + 100,
-          countedDays: result.countedDays + 1,
-        };
-      }
-
-      if (status === AttendanceStatus.ONTIME) {
-        return {
-          total: result.total + 100,
-          countedDays: result.countedDays + 1,
-        };
-      }
-
-      if (status === AttendanceStatus.LATE) {
-        return {
-          total: result.total + 70,
-          countedDays: result.countedDays + 1,
-        };
-      }
-
       return {
-        total: result.total,
+        total: result.total + score,
         countedDays: result.countedDays + 1,
       };
     },
@@ -90,16 +137,76 @@ function calculateDisciplineScore(rows: AttendanceScoreRow[]) {
   return roundNumber(summary.total / summary.countedDays);
 }
 
-function isCompletedAfterTarget(row: ProgressScoreRow) {
-  if (!row.targetSelesai || !row.tanggalSelesai) {
-    return false;
+function getProgressBaseScore(row: ProgressScoreRow) {
+  if (row.closing) {
+    return 100;
   }
 
-  return row.tanggalSelesai.getTime() > row.targetSelesai.getTime();
+  if (row.isDone && row.revisiDone) {
+    return 95;
+  }
+
+  if (row.isDone) {
+    return 88;
+  }
+
+  if (row.tanggalSelesai && row.tanggalRevisi && !row.revisiDone) {
+    return 68;
+  }
+
+  if (row.tanggalSelesai) {
+    return 80;
+  }
+
+  if (row.tanggalMulai) {
+    return 55;
+  }
+
+  return 35;
+}
+
+function getProgressCompletionDate(row: ProgressScoreRow) {
+  if (row.revisiDone) {
+    return row.revisiDone;
+  }
+
+  if (row.tanggalSelesai) {
+    return row.tanggalSelesai;
+  }
+
+  return null;
+}
+
+function getProgressDeadlineAdjustedScore(row: ProgressScoreRow) {
+  const baseScore = getProgressBaseScore(row);
+  const completionDate = getProgressCompletionDate(row);
+
+  if (!row.targetSelesai || !completionDate) {
+    return baseScore;
+  }
+
+  const deadlineMs = row.targetSelesai.getTime();
+  const completionMs = completionDate.getTime();
+
+  if (completionMs < deadlineMs) {
+    return Math.min(100, baseScore + 5);
+  }
+
+  if (completionMs === deadlineMs) {
+    return baseScore;
+  }
+
+  const lateDays = Math.ceil((completionMs - deadlineMs) / (1000 * 60 * 60 * 24));
+
+  if (lateDays <= 2) {
+    return Math.max(0, baseScore - 10);
+  }
+
+  return Math.max(0, baseScore - 20);
 }
 
 function calculatePerformanceScore(rows: ProgressScoreRow[]) {
-  const activeRows = rows.filter((row) => !row.canceledAt && !isCompletedAfterTarget(row));
+  const activeRows = rows.filter((row) => !row.canceledAt);
 
   if (activeRows.length === 0) {
     return 0;
@@ -108,21 +215,7 @@ function calculatePerformanceScore(rows: ProgressScoreRow[]) {
   const { totalScore, totalWeight } = activeRows.reduce(
     (summary, row) => {
       const weight = getJobWeight(row.pekerjaan);
-      let score = 35;
-
-      if (row.closing) {
-        score = 100;
-      } else if (row.isDone && row.revisiDone) {
-        score = 95;
-      } else if (row.isDone) {
-        score = 88;
-      } else if (row.tanggalSelesai && row.tanggalRevisi && !row.revisiDone) {
-        score = 68;
-      } else if (row.tanggalSelesai) {
-        score = 80;
-      } else if (row.tanggalMulai) {
-        score = 55;
-      }
+      const score = getProgressDeadlineAdjustedScore(row);
 
       return {
         totalScore: summary.totalScore + score * weight,
@@ -225,6 +318,7 @@ export async function syncUserMonthlyKpi(userId: string, year: number, month: nu
       date: true,
       status: true,
       checkIn: true,
+      checkOut: true,
     },
   });
 
