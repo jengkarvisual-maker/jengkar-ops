@@ -152,7 +152,14 @@ export function formatDateInput(value?: Date | string | null) {
   return `${year}-${`${month}`.padStart(2, "0")}-${`${day}`.padStart(2, "0")}`;
 }
 
-export function getWorkdaySchedule(date = new Date()) {
+export type WorkdaySchedule = {
+  isOff: boolean;
+  label: string;
+  start: string;
+  end: string;
+};
+
+export function getWorkdaySchedule(date = new Date()): WorkdaySchedule {
   const { weekday } = getAppDateParts(date);
 
   if (weekday === "Sun") {
@@ -185,15 +192,19 @@ export function isSunday(date = new Date()) {
   return getAppDateParts(date).weekday === "Sun";
 }
 
-export function resolveAttendanceStatus(date: Date, checkIn?: Date | null) {
-  const schedule = getWorkdaySchedule(date);
+export function resolveAttendanceStatus(
+  date: Date,
+  checkIn?: Date | null,
+  schedule = getWorkdaySchedule(date),
+) {
 
   if (schedule.isOff || !checkIn) {
     return AttendanceStatus.OFF;
   }
 
   const { year, month, day } = getAppDateParts(date);
-  const threshold = createAppTimestamp(year, month, day, 9, 0, 0);
+  const [startHour, startMinute] = schedule.start.split(":").map(Number);
+  const threshold = createAppTimestamp(year, month, day, startHour, startMinute ?? 0, 0);
 
   return checkIn.getTime() > threshold.getTime()
     ? AttendanceStatus.LATE

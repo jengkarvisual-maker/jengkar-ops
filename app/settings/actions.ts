@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
-import { UserRole } from "@prisma/client";
+import { UserRole, WorkdayOverrideType } from "@prisma/client";
 
 import {
   canResetManagedPasswords,
@@ -15,6 +15,7 @@ import { isKpiMonthLocked, syncAllKpisForMonth, syncUserKpisForDates } from "@/l
 import { prisma } from "@/lib/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isValidTimeInput } from "@/lib/workday-overrides";
 import {
   addDays,
   formatDate,
@@ -40,6 +41,11 @@ export type ResetManagedPasswordState = {
 };
 
 export type LockKpiMonthState = {
+  error: string | null;
+  success: string | null;
+};
+
+export type WorkdayOverrideState = {
   error: string | null;
   success: string | null;
 };
@@ -116,8 +122,26 @@ function normalizeMonthKey(input: FormDataEntryValue | null) {
   return String(input ?? "").trim();
 }
 
+function normalizeOptionalText(input: FormDataEntryValue | null) {
+  const value = String(input ?? "").trim();
+  return value.length > 0 ? value : null;
+}
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function ensureOwnerSettingsAction(
+  user: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
+): WorkdayOverrideState | null {
+  if (user.role !== UserRole.OWNER) {
+    return {
+      error: "Hanya Owner yang dapat mengubah kalender kerja khusus.",
+      success: null,
+    };
+  }
+
+  return null;
 }
 
 async function findSupabaseAuthUserIdByEmail(email: string) {
@@ -804,6 +828,132 @@ export async function lockKpiMonthAction(
   return {
     error: null,
     success: `KPI ${formatMonthYear(parsedMonth.month, parsedMonth.year)} berhasil dikunci. Perubahan absensi atau progres lama setelah ini tidak akan menggeser hasil evaluasi periode tersebut.`,
+  };
+}
+
+export async function upsertWorkdayOverrideAction(
+  _previousState: WorkdayOverrideState,
+  formData: FormData,
+): Promise<WorkdayOverrideState> {
+  const user = await requireAuthenticatedUser();
+  const ownerError = ensureOwnerSettingsAction(user);
+
+  if (ownerError) {
+    return ownerError;
+  }
+
+  const date = parseDateInput(formData.get("date"));
+  const typeInput = normalizeMonthKey(formData.get("type"));
+  const label = String(formData.get("label") ?? "").trim();
+  const startTime = normalizeOptionalText(formData.get("startTime"));
+  const endTime = normalizeOptionalText(formData.get("endTime"));
+
+  if (!date) {
+    return {
+      error: "Tanggal override kerja belum valid.",
+      success: null,
+    };
+  }
+
+  if (typeInput !== WorkdayOverrideType.HOLIDAY && typeInput !== WorkdayOverrideType.SPECIAL_WORKDAY) {
+    return {
+      error: "Tipe override kerja belum valid.",
+      success: null,
+    };
+  }
+
+  if (!label || label.length < 3) {
+    return {
+      error: "Label hari kerja/libur minimal 3 karakter.",
+      success: null,
+    };
+  }
+
+  if (typeInput === WorkdayOverrideType.SPECIAL_WORKDAY) {
+    if (!startTime || !endTime) {
+      return {
+        error: "Hari kerja khusus wajib memiliki jam mulai dan jam selesai.",
+        success: null,
+      };
+    }
+
+    if (!isValidTimeInput(startTime) || !isValidTimeInput(endTime)) {
+      return {
+        error: "Format jam harus HH:MM, contoh 09:00 atau 16:00.",
+        success: null,
+      };
+    }
+
+    if (startTime >= endTime) {
+      return {
+        error: "Jam selesai harus lebih besar dari jam mulai.",
+        success: null,
+      };
+    }
+  }
+
+  await prisma.workdayOverride.upsert({
+    where: {
+      date,
+    },
+    update: {
+      type: typeInput,
+      label,
+      startTime: typeInput === WorkdayOverrideType.SPECIAL_WORKDAY ? startTime : null,
+      endTime: typeInput === WorkdayOverrideType.SPECIAL_WORKDAY ? endTime : null,
+    },
+    create: {
+      date,
+      type: typeInput,
+      label,
+      startTime: typeInput === WorkdayOverrideType.SPECIAL_WORKDAY ? startTime : null,
+      endTime: typeInput === WorkdayOverrideType.SPECIAL_WORKDAY ? endTime : null,
+      createdByUserId: user.id,
+    },
+  });
+
+  refreshDashboardAndSettings();
+
+  return {
+    error: null,
+    success:
+      typeInput === WorkdayOverrideType.HOLIDAY
+        ? `${label} berhasil disimpan sebagai hari libur.`
+        : `${label} berhasil disimpan sebagai hari kerja khusus.`,
+  };
+}
+
+export async function deleteWorkdayOverrideAction(
+  _previousState: WorkdayOverrideState,
+  formData: FormData,
+): Promise<WorkdayOverrideState> {
+  const user = await requireAuthenticatedUser();
+  const ownerError = ensureOwnerSettingsAction(user);
+
+  if (ownerError) {
+    return ownerError;
+  }
+
+  const overrideId = String(formData.get("overrideId") ?? "").trim();
+
+  if (!overrideId) {
+    return {
+      error: "Data override yang ingin dihapus belum valid.",
+      success: null,
+    };
+  }
+
+  await prisma.workdayOverride.delete({
+    where: {
+      id: overrideId,
+    },
+  });
+
+  refreshDashboardAndSettings();
+
+  return {
+    error: null,
+    success: "Override hari kerja/libur berhasil dihapus.",
   };
 }
 

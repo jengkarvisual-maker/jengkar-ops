@@ -5,11 +5,12 @@ import { SettingsAdminTools } from "@/components/settings-admin-tools";
 import { SettingsMaintenanceForms } from "@/components/settings-maintenance-forms";
 import { SettingsPasswordForm } from "@/components/settings-password-form";
 import { SettingsTeamForm } from "@/components/settings-team-form";
+import { SettingsWorkdayOverridesForm } from "@/components/settings-workday-overrides-form";
 import { canResetManagedPasswords, requireAuthenticatedUser } from "@/lib/auth";
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
+import { addDays, formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,6 +21,8 @@ export default async function SettingsPage() {
     user.role === UserRole.OWNER ? await getAttendanceSafeMonths() : [];
   const teamMembers =
     user.role === UserRole.OWNER ? await getOwnerTeamMembers() : [];
+  const workdayOverrides =
+    user.role === UserRole.OWNER ? await getOwnerWorkdayOverrides() : [];
   const resettableUsers = canResetManagedPasswords(user.role)
     ? await getResettableUsers(user.role)
     : [];
@@ -79,6 +82,8 @@ export default async function SettingsPage() {
             isProvisioningReady={isSupabaseAdminConfigured()}
             teamMembers={teamMembers}
           />
+
+          <SettingsWorkdayOverridesForm overrides={workdayOverrides} />
 
           <article className="ui-panel p-5 md:p-6">
             <div className="ui-pill">
@@ -233,6 +238,47 @@ async function getOwnerTeamMembers() {
       email: true,
     },
   });
+}
+
+async function getOwnerWorkdayOverrides() {
+  const minDate = addDays(startOfMonth(new Date()), -62);
+
+  const rows = await prisma.workdayOverride.findMany({
+    where: {
+      date: {
+        gte: minDate,
+      },
+    },
+    orderBy: {
+      date: "asc",
+    },
+    take: 24,
+    select: {
+      id: true,
+      date: true,
+      type: true,
+      label: true,
+      startTime: true,
+      endTime: true,
+      updatedAt: true,
+      createdBy: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    date: row.date.toISOString(),
+    type: row.type,
+    label: row.label,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    updatedAt: row.updatedAt.toISOString(),
+    createdByName: row.createdBy?.name ?? null,
+  }));
 }
 
 async function getAttendanceSafeMonths() {

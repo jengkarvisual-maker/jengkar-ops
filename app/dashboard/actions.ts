@@ -9,11 +9,11 @@ import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
+import { getWorkdayOverrideForDate, resolveWorkdaySchedule } from "@/lib/workday-overrides";
 import { getAddonTypeLabel, isEmployeeAddonStorageUnavailable } from "@/lib/work-tracking";
 import {
   calculateBonusPool,
   getAppDateParts,
-  getWorkdaySchedule,
   parseDateInput,
   resolveAttendanceStatus,
   startOfDay,
@@ -363,12 +363,12 @@ export async function checkInAction() {
   const user = await requireAuthenticatedUser();
   const now = new Date();
   const today = startOfDay(now);
-  const schedule = getWorkdaySchedule(now);
+  const schedule = resolveWorkdaySchedule(now, await getWorkdayOverrideForDate(now));
 
   if (schedule.isOff) {
     redirectWithFeedback(
       "error",
-      "Hari ini terdeteksi sebagai hari libur. Gunakan tombol OFF bila perlu mencatat status.",
+      `Hari ini terdeteksi sebagai hari libur atau non-kerja (${schedule.label}). Gunakan tombol OFF bila perlu mencatat status.`,
     );
   }
 
@@ -395,14 +395,14 @@ export async function checkInAction() {
     update: {
       checkIn: now,
       checkOut: null,
-      status: resolveAttendanceStatus(now, now),
+      status: resolveAttendanceStatus(now, now, schedule),
     },
     create: {
       userId: user.id,
       date: today,
       checkIn: now,
       checkOut: null,
-      status: resolveAttendanceStatus(now, now),
+      status: resolveAttendanceStatus(now, now, schedule),
     },
   });
 

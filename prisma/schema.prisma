@@ -36,6 +36,11 @@ enum AddonType {
   LUAR_KOTA
 }
 
+enum WorkdayOverrideType {
+  HOLIDAY
+  SPECIAL_WORKDAY
+}
+
 model User {
   id            String         @id @default(cuid())
   authUserId    String?        @unique @db.Uuid
@@ -52,6 +57,7 @@ model User {
   monthlyKpis   KpiMonthly[]
   yearlyKpis    KpiYearly[]
   lockedKpiMonths KpiMonthLock[] @relation("KpiMonthLockedBy")
+  createdWorkdayOverrides WorkdayOverride[] @relation("WorkdayOverrideCreatedBy")
 }
 
 model Attendance {
@@ -172,4 +178,19 @@ model EmployeeAddon {
 
   @@index([addonDate])
   @@index([userId, addonDate])
+}
+
+model WorkdayOverride {
+  id              String              @id @default(cuid())
+  date            DateTime            @unique @db.Date
+  type            WorkdayOverrideType
+  label           String
+  startTime       String?             @db.VarChar(5)
+  endTime         String?             @db.VarChar(5)
+  createdByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       User?               @relation("WorkdayOverrideCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([date, type])
 }

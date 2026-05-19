@@ -12,11 +12,18 @@ import {
   calculateIndividualBonus,
   formatMonthYear,
   getAppDateParts,
-  getWorkdaySchedule,
   getKpiNarrative,
   resolveAttendanceStatus,
   startOfDay,
 } from "@/lib/utils";
+import {
+  buildWorkdayDateKey,
+  getWorkdayOverrideForDate,
+  getWorkdayOverrideLabel,
+  getWorkdayOverrideMapForDates,
+  resolveWorkdaySchedule,
+  type WorkdayOverrideRow,
+} from "@/lib/workday-overrides";
 import type {
   AdminDashboardData,
   AttendanceItem,
@@ -119,6 +126,7 @@ function mapAttendanceRows(
       email: string;
     };
   }>,
+  overrideMap: Map<string, WorkdayOverrideRow> = new Map(),
 ): AttendanceItem[] {
   return rows.map((row) => ({
     id: row.id,
@@ -129,7 +137,11 @@ function mapAttendanceRows(
     status:
       row.status === AttendanceStatus.OFF
         ? AttendanceStatus.OFF
-        : resolveAttendanceStatus(row.date, row.checkIn),
+        : resolveAttendanceStatus(
+            row.date,
+            row.checkIn,
+            resolveWorkdaySchedule(row.date, overrideMap.get(buildWorkdayDateKey(row.date))),
+          ),
     checkIn: row.checkIn,
     checkOut: row.checkOut,
   }));
@@ -557,7 +569,10 @@ async function buildOwnerDashboardData(input?: {
       }),
     ]);
 
-    const attendanceToday = mapAttendanceRows(attendanceRows);
+    const attendanceOverrideMap = await getWorkdayOverrideMapForDates(
+      attendanceRows.map((row) => row.date),
+    );
+    const attendanceToday = mapAttendanceRows(attendanceRows, attendanceOverrideMap);
 
     return {
       ...baseData,
@@ -1037,7 +1052,10 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
       }),
     ]);
 
-  const attendanceToday = mapAttendanceRows(attendanceRows);
+  const attendanceOverrideMap = await getWorkdayOverrideMapForDates(
+    attendanceRows.map((row) => row.date),
+  );
+  const attendanceToday = mapAttendanceRows(attendanceRows, attendanceOverrideMap);
 
   return {
     teamUsers,
@@ -1134,18 +1152,25 @@ async function buildEmployeeDashboardData(userId: string): Promise<EmployeeDashb
     }),
   ]);
 
+  const attendanceOverrideMap = await getWorkdayOverrideMapForDates([
+    attendanceToday?.date,
+    ...recentAttendance.map((row) => row.date),
+  ]);
+  const todayWorkdayOverride = await getWorkdayOverrideForDate(now);
   const mappedMonthly = monthlyKpi ? mapMonthlyKpis([monthlyKpi])[0] : null;
   const mappedYearly = yearlyKpi ? mapYearlyKpis([yearlyKpi])[0] : null;
 
   return {
-    attendanceToday: attendanceToday ? mapAttendanceRows([attendanceToday])[0] : null,
-    recentAttendance: mapAttendanceRows(recentAttendance),
+    attendanceToday: attendanceToday
+      ? mapAttendanceRows([attendanceToday], attendanceOverrideMap)[0]
+      : null,
+    recentAttendance: mapAttendanceRows(recentAttendance, attendanceOverrideMap),
     progressRows: mapProgressRows(progressRows),
     monthlyKpi: mappedMonthly,
     yearlyKpi: mappedYearly,
     stopCards: mapEmployeeStopCards(stopCardRows),
     narrative: getKpiNarrative(mappedMonthly?.totalScore, mappedYearly?.avgScore),
-    scheduleLabel: getWorkdaySchedule(now).label,
+    scheduleLabel: getWorkdayOverrideLabel(now, todayWorkdayOverride),
     overtimeRows: overtimeSummary.rows,
     overtimeMonthLabel: formatMonthYear(currentMonth, currentYear),
     overtimeMonthlyTotalHours: overtimeSummary.totalHours,

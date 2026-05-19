@@ -11,10 +11,15 @@ import {
   isSunday,
   getMonthBounds,
   getMonthTimestampBounds,
-  getWorkdaySchedule,
   resolveAttendanceStatus,
   roundNumber,
 } from "@/lib/utils";
+import {
+  buildWorkdayDateKey,
+  getWorkdayOverrideMapForRange,
+  resolveWorkdaySchedule,
+  type WorkdayOverrideRow,
+} from "@/lib/workday-overrides";
 
 type AttendanceScoreRow = {
   date: Date;
@@ -51,12 +56,15 @@ function getCheckInDisciplineScore(status: AttendanceStatus) {
   return 0;
 }
 
-function getCheckOutDisciplineScore(date: Date, checkOut: Date | null) {
+function getCheckOutDisciplineScore(
+  date: Date,
+  checkOut: Date | null,
+  schedule: ReturnType<typeof resolveWorkdaySchedule>,
+) {
   if (!checkOut) {
     return null;
   }
 
-  const schedule = getWorkdaySchedule(date);
   const [scheduleEndHour, scheduleEndMinute] = schedule.end.split(":").map(Number);
   const beforeNoonThreshold = getAppTimeOnDate(date, 12, 0, 0);
   const standardThreshold = getAppTimeOnDate(date, scheduleEndHour, scheduleEndMinute ?? 0, 0);
@@ -77,18 +85,27 @@ function getCheckOutDisciplineScore(date: Date, checkOut: Date | null) {
   return 65;
 }
 
-function calculateAttendanceDayScore(row: AttendanceScoreRow) {
-  const schedule = getWorkdaySchedule(row.date);
+function calculateAttendanceDayScore(
+  row: AttendanceScoreRow,
+  overrideMap: Map<string, WorkdayOverrideRow>,
+) {
+  const schedule = resolveWorkdaySchedule(
+    row.date,
+    overrideMap.get(buildWorkdayDateKey(row.date)),
+  );
   const status =
     row.status === AttendanceStatus.OFF
       ? AttendanceStatus.OFF
-      : resolveAttendanceStatus(row.date, row.checkIn);
+      : resolveAttendanceStatus(row.date, row.checkIn, schedule);
 
   if (schedule.isOff && !row.checkIn) {
     return null;
   }
 
-  if (status === AttendanceStatus.OFF && isSunday(row.date)) {
+  if (
+    status === AttendanceStatus.OFF &&
+    (schedule.isOff || schedule.source === "override" || isSunday(row.date))
+  ) {
     return null;
   }
 
@@ -97,7 +114,7 @@ function calculateAttendanceDayScore(row: AttendanceScoreRow) {
   }
 
   const checkInScore = getCheckInDisciplineScore(status);
-  const checkOutScore = getCheckOutDisciplineScore(row.date, row.checkOut);
+  const checkOutScore = getCheckOutDisciplineScore(row.date, row.checkOut, schedule);
   const weightedScore =
     checkOutScore === null
       ? checkInScore
@@ -106,14 +123,17 @@ function calculateAttendanceDayScore(row: AttendanceScoreRow) {
   return Math.min(100, roundNumber(weightedScore));
 }
 
-function calculateDisciplineScore(rows: AttendanceScoreRow[]) {
+function calculateDisciplineScore(
+  rows: AttendanceScoreRow[],
+  overrideMap: Map<string, WorkdayOverrideRow>,
+) {
   if (rows.length === 0) {
     return 0;
   }
 
   const summary = rows.reduce(
     (result, row) => {
-      const score = calculateAttendanceDayScore(row);
+      const score = calculateAttendanceDayScore(row, overrideMap);
 
       if (score === null) {
         return result;
@@ -338,7 +358,8 @@ export async function syncUserMonthlyKpi(userId: string, year: number, month: nu
     },
   });
 
-  const scoreDisiplin = calculateDisciplineScore(attendanceRows);
+  const workdayOverrideMap = await getWorkdayOverrideMapForRange(start, end);
+  const scoreDisiplin = calculateDisciplineScore(attendanceRows, workdayOverrideMap);
   const scoreKinerja = calculatePerformanceScore(progressRows);
   const totalScore = calculateMonthlyKpi(scoreKinerja, scoreDisiplin);
 
