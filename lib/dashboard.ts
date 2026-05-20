@@ -2,6 +2,7 @@ import { AttendanceStatus, UserRole } from "@prisma/client";
 
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { getOwnerSlipGajiData } from "@/lib/slip-gaji";
 import {
   buildRecentMonthOptions,
   getMonthlyAddonSummary,
@@ -419,6 +420,8 @@ function createEmptyOwnerDashboardData(
   activeTab: OwnerDashboardTab,
 ): OwnerDashboardData {
   const { month: currentMonth, year: currentYear } = getAppDateParts(now);
+  const slipMonthOptions = buildRecentMonthOptions(12, now);
+  const defaultSlipMonth = slipMonthOptions[0] ?? null;
 
   return {
     activeTab,
@@ -465,12 +468,35 @@ function createEmptyOwnerDashboardData(
     overtimeMonthlyTotalHours: 0,
     addonRows: [],
     addonMonthlyTotalQuantity: 0,
+    slipGaji: {
+      monthOptions: slipMonthOptions,
+      selectedMonthKey: defaultSlipMonth?.key ?? "",
+      selectedMonthLabel: defaultSlipMonth?.label ?? "Belum ada periode",
+      selectedUserId: "",
+      selectedUserName: null,
+      attendanceRecap: {
+        onTime: 0,
+        late: 0,
+        checkoutAfterFive: 0,
+      },
+      overtimeTotalHours: 0,
+      addonItems: [],
+      addonTotalQuantity: 0,
+      monthlyKpi: null,
+      averageKpi: null,
+      bonusKpi: 0,
+      bonusKpiAvailable: false,
+      bonusKpiMessage: null,
+      financeBonusPool: 0,
+    },
     finance: null,
   };
 }
 
 async function buildOwnerDashboardData(input?: {
   kpiMonthKey?: string;
+  slipMonthKey?: string;
+  slipUserId?: string;
   tab?: OwnerDashboardTab;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
@@ -635,6 +661,24 @@ async function buildOwnerDashboardData(input?: {
       overtimeMonthlyTotalHours: overtimeSummary.totalHours,
       addonRows: addonSummary.rows,
       addonMonthlyTotalQuantity: addonSummary.totalQuantity,
+    };
+  }
+
+  if (activeTab === "slip") {
+    const [teamUsers, slipGaji] = await Promise.all([
+      getAssignableUsers(),
+      getOwnerSlipGajiData({
+        userId: input?.slipUserId,
+        monthKey: input?.slipMonthKey,
+        anchor: now,
+      }),
+    ]);
+
+    return {
+      ...baseData,
+      teamUsers,
+      teamSize: teamUsers.length,
+      slipGaji,
     };
   }
 
@@ -966,6 +1010,8 @@ async function buildOwnerDashboardData(input?: {
 export async function getOwnerDashboardData(input?: {
   tab?: OwnerDashboardTab;
   kpiMonthKey?: string;
+  slipMonthKey?: string;
+  slipUserId?: string;
   lockedMonthKey?: string;
   monitoringMonthKey?: string;
   monitoringUserId?: string;

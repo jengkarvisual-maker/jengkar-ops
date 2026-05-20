@@ -20,7 +20,7 @@ import {
 } from "@/lib/utils";
 
 type FeedbackType = "success" | "error";
-type DashboardTab = "daily" | "addon" | "kpi";
+type DashboardTab = "daily" | "addon" | "kpi" | "slip";
 const OPS_DASHBOARD_TAG = "ops-dashboard";
 
 export type HideCompletedProgressResult =
@@ -188,7 +188,11 @@ function serializeManagerProgressRow(row: {
 
 function parseDashboardTabValue(value: FormDataEntryValue | null | undefined): DashboardTab | null {
   const normalized = String(value ?? "").trim();
-  return normalized === "addon" || normalized === "kpi" ? normalized : normalized === "daily" ? normalized : null;
+  return normalized === "addon" || normalized === "kpi" || normalized === "slip"
+    ? normalized
+    : normalized === "daily"
+      ? normalized
+      : null;
 }
 
 function redirectWithDashboardContext(

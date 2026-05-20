@@ -49,7 +49,7 @@ function readOwnerDashboardTab(
   searchParams: Record<string, string | string[] | undefined> | undefined,
 ): OwnerDashboardTab {
   const value = readSingleParam(searchParams, "tab");
-  return value === "addon" || value === "kpi" ? value : "daily";
+  return value === "addon" || value === "kpi" || value === "slip" ? value : "daily";
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
@@ -62,6 +62,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const data = await getOwnerDashboardData({
       tab: activeTab,
       kpiMonthKey: readSingleParam(resolvedSearchParams, "kpiMonth"),
+      slipMonthKey: readSingleParam(resolvedSearchParams, "slipMonth"),
+      slipUserId: readSingleParam(resolvedSearchParams, "slipUser"),
       lockedMonthKey: readSingleParam(resolvedSearchParams, "lockedMonth"),
       monitoringMonthKey: readSingleParam(resolvedSearchParams, "trackingMonth"),
       monitoringUserId: readSingleParam(resolvedSearchParams, "trackingUser"),

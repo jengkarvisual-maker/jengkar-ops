@@ -93,7 +93,7 @@ export type DashboardMonthOption = {
   month: number;
 };
 
-export type OwnerDashboardTab = "daily" | "addon" | "kpi";
+export type OwnerDashboardTab = "daily" | "addon" | "kpi" | "slip";
 
 export type LockedKpiSelection = {
   key: string;
@@ -115,6 +115,34 @@ export type BonusSimulationItem = {
   averageScore: number;
   monthsCount: number;
   bonus: number;
+};
+
+export type SlipGajiAddonItem = {
+  addonType: AddonType;
+  addonTypeLabel: string;
+  quantity: number;
+};
+
+export type SlipGajiData = {
+  monthOptions: DashboardMonthOption[];
+  selectedMonthKey: string;
+  selectedMonthLabel: string;
+  selectedUserId: string;
+  selectedUserName: string | null;
+  attendanceRecap: {
+    onTime: number;
+    late: number;
+    checkoutAfterFive: number;
+  };
+  overtimeTotalHours: number;
+  addonItems: SlipGajiAddonItem[];
+  addonTotalQuantity: number;
+  monthlyKpi: MonthlyKpiItem | null;
+  averageKpi: number | null;
+  bonusKpi: number;
+  bonusKpiAvailable: boolean;
+  bonusKpiMessage: string | null;
+  financeBonusPool: number;
 };
 
 export type OvertimeItem = {
@@ -187,6 +215,7 @@ export type OwnerDashboardData = {
   overtimeMonthlyTotalHours: number;
   addonRows: EmployeeAddonItem[];
   addonMonthlyTotalQuantity: number;
+  slipGaji: SlipGajiData;
   finance:
     | {
         year: number;

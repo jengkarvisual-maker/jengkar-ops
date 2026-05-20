@@ -18,6 +18,7 @@ import { CompletedProgressRecapClient } from "@/components/completed-progress-re
 import { EmployeeAddonPanelClient } from "@/components/employee-addon-panel-client";
 import { LockKpiMonthForm } from "@/components/lock-kpi-month-form";
 import { ManagerProgressList, type ManagerProgressItem } from "@/components/manager-progress-list";
+import { SlipGajiPanelClient } from "@/components/slip-gaji-panel-client";
 import { FormSubmitButton } from "@/components/form-submit-button";
 import { OwnerStopCardHideForm } from "@/components/owner-stop-card-hide-form";
 import { JOB_OPTIONS } from "@/lib/job-catalog";
@@ -184,6 +185,11 @@ const OWNER_TAB_ITEMS: Array<{
     key: "kpi",
     label: "KPI",
     description: "Status KPI final, nilai final, KPI tim, bonus, dan simulasi uang per karyawan.",
+  },
+  {
+    key: "slip",
+    label: "Slip Gaji",
+    description: "Kalkulasi slip gaji bulanan karyawan dengan data absensi, lembur, add-on, KPI, dan export PDF.",
   },
 ];
 
@@ -1178,6 +1184,7 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
   const isDailyTab = data.activeTab === "daily";
   const isAddonTab = data.activeTab === "addon";
   const isKpiTab = data.activeTab === "kpi";
+  const isSlipTab = data.activeTab === "slip";
 
   return (
     <div className="space-y-5">
@@ -1302,6 +1309,46 @@ function OwnerPanel({ data }: { data: OwnerDashboardData }) {
           <CardSection title="Simulasi uang per karyawan" description="Owner bisa menguji pembagian uang berdasarkan rata-rata KPI pada rentang bulan yang dipilih, tanpa mengubah data KPI asli.">
             <KpiMoneySimulationPanel data={data} />
           </CardSection>
+        </>
+      ) : null}
+
+      {isSlipTab ? (
+        <>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              description="Karyawan yang sedang dipilih untuk kalkulasi slip gaji."
+              label="Karyawan aktif"
+              value={data.slipGaji.selectedUserName ?? "Belum dipilih"}
+            />
+            <StatCard
+              description="Periode bulan yang sedang dipakai untuk membaca data absensi, lembur, add-on, dan KPI."
+              label="Periode aktif"
+              value={data.slipGaji.selectedMonthLabel}
+            />
+            <StatCard
+              description="Total jam lembur pada periode yang dipilih."
+              label="Total lembur"
+              tone="success"
+              value={formatHours(data.slipGaji.overtimeTotalHours)}
+            />
+            <StatCard
+              description="Jumlah pekerjaan add-on pada periode yang dipilih."
+              label="Total add-on"
+              tone="pending"
+              value={String(data.slipGaji.addonTotalQuantity)}
+            />
+          </section>
+
+          <CardSection
+            title="Slip Gaji"
+            description="Halaman ini hanya membaca data existing untuk membantu owner menghitung slip gaji dan export PDF tanpa mengubah absensi, lembur, pekerjaan add-on, maupun KPI."
+          >
+            <SlipGajiPanelClient
+              key={`${data.slipGaji.selectedUserId || "all"}:${data.slipGaji.selectedMonthKey || "none"}`}
+              data={data.slipGaji}
+              teamUsers={data.teamUsers}
+            />
+            </CardSection>
         </>
       ) : null}
     </div>
