@@ -59,6 +59,50 @@ function drawText(
   });
 }
 
+function drawWrappedText(
+  page: import("pdf-lib").PDFPage,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  size: number,
+  font: import("pdf-lib").PDFFont,
+  color = rgb(0.35, 0.35, 0.38),
+) {
+  const words = text.split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) {
+    return y;
+  }
+
+  const lines: string[] = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    const width = font.widthOfTextAtSize(candidate, size);
+
+    if (width <= maxWidth || !currentLine) {
+      currentLine = candidate;
+      return;
+    }
+
+    lines.push(currentLine);
+    currentLine = word;
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  lines.forEach((line, index) => {
+    drawText(page, line, x, y - index * lineHeight, size, font, color);
+  });
+
+  return y - (lines.length - 1) * lineHeight;
+}
+
 function drawRule(page: import("pdf-lib").PDFPage, y: number) {
   page.drawLine({
     start: { x: 40, y },
@@ -83,12 +127,18 @@ function drawSummaryRow(
 }
 
 async function loadLogo() {
-  try {
-    const filePath = path.join(process.cwd(), "public", "rumah-jengkar-logo.png");
-    return await fs.readFile(filePath);
-  } catch {
-    return null;
+  const fileNames = ["rumah-jengkar-logo-cropped.png", "rumah-jengkar-logo.png"];
+
+  for (const fileName of fileNames) {
+    try {
+      const filePath = path.join(process.cwd(), "public", fileName);
+      return await fs.readFile(filePath);
+    } catch {
+      continue;
+    }
   }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -148,13 +198,16 @@ export async function POST(request: Request) {
   if (logoBytes) {
     try {
       const image = await pdf.embedPng(logoBytes);
-      const scaled = image.scale(0.18);
+      const maxWidth = 112;
+      const scale = maxWidth / image.width;
+      const width = image.width * scale;
+      const height = image.height * scale;
 
       page.drawImage(image, {
         x: 42,
-        y: 764,
-        width: scaled.width,
-        height: scaled.height,
+        y: 748,
+        width,
+        height,
       });
     } catch {
       drawText(page, "Rumah Jengkar", 42, 790, 15, boldFont);
@@ -163,32 +216,32 @@ export async function POST(request: Request) {
     drawText(page, "Rumah Jengkar", 42, 790, 15, boldFont);
   }
 
-  drawText(page, "SLIP GAJI", 420, 790, 18, boldFont);
-  drawText(page, `Tanggal cetak: ${formatPrintDate()}`, 388, 772, 9, font, rgb(0.35, 0.35, 0.38));
-  drawRule(page, 752);
+  drawText(page, "SLIP GAJI", 418, 790, 18, boldFont);
+  drawText(page, `Tanggal cetak: ${formatPrintDate()}`, 382, 772, 9, font, rgb(0.35, 0.35, 0.38));
+  drawRule(page, 738);
 
-  drawText(page, "Identitas", 42, 730, 10.5, boldFont);
-  drawText(page, `Nama Karyawan: ${slipData.selectedUserName}`, 42, 712, 9.5, font);
-  drawText(page, `Bulan: ${slipData.selectedMonthLabel}`, 320, 712, 9.5, font);
+  drawText(page, "Identitas", 42, 716, 10.5, boldFont);
+  drawText(page, `Nama Karyawan: ${slipData.selectedUserName}`, 42, 698, 9.5, font);
+  drawText(page, `Bulan: ${slipData.selectedMonthLabel}`, 320, 698, 9.5, font);
 
-  drawText(page, "Breakdown Gaji", 42, 684, 10.5, boldFont);
-  drawSummaryRow(page, "Gaji Pokok", formatCurrency(baseSalary), 664, font, boldFont);
-  drawSummaryRow(page, "Total Uang Lembur", formatCurrency(totalOvertimePay), 648, font, boldFont);
-  drawSummaryRow(page, "Total Uang Pekerjaan Add-on", formatCurrency(totalAddonPay), 632, font, boldFont);
-  drawSummaryRow(page, "Bonus KPI", formatCurrency(slipData.bonusKpi), 616, font, boldFont);
-  drawSummaryRow(page, "Total Diterima", formatCurrency(totalReceived), 598, font, boldFont, true);
-  drawRule(page, 588);
+  drawText(page, "Breakdown Gaji", 42, 670, 10.5, boldFont);
+  drawSummaryRow(page, "Gaji Pokok", formatCurrency(baseSalary), 650, font, boldFont);
+  drawSummaryRow(page, "Total Uang Lembur", formatCurrency(totalOvertimePay), 634, font, boldFont);
+  drawSummaryRow(page, "Total Uang Pekerjaan Add-on", formatCurrency(totalAddonPay), 618, font, boldFont);
+  drawSummaryRow(page, "Bonus KPI", formatCurrency(slipData.bonusKpi), 602, font, boldFont);
+  drawSummaryRow(page, "Total Diterima", formatCurrency(totalReceived), 584, font, boldFont, true);
+  drawRule(page, 574);
 
-  drawText(page, "Detail Lembur", 42, 566, 10.5, boldFont);
-  drawSummaryRow(page, "Total jam lembur", formatHours(slipData.overtimeTotalHours), 548, font, boldFont);
-  drawSummaryRow(page, "Harga lembur per jam", formatCurrency(overtimeRate), 532, font, boldFont);
-  drawSummaryRow(page, "Total uang lembur", formatCurrency(totalOvertimePay), 516, font, boldFont);
+  drawText(page, "Detail Lembur", 42, 552, 10.5, boldFont);
+  drawSummaryRow(page, "Total jam lembur", formatHours(slipData.overtimeTotalHours), 534, font, boldFont);
+  drawSummaryRow(page, "Harga lembur per jam", formatCurrency(overtimeRate), 518, font, boldFont);
+  drawSummaryRow(page, "Total uang lembur", formatCurrency(totalOvertimePay), 502, font, boldFont);
 
-  drawText(page, "Detail Pekerjaan Add-on", 310, 566, 10.5, boldFont);
+  drawText(page, "Detail Pekerjaan Add-on", 310, 552, 10.5, boldFont);
   if (addonRows.length === 0) {
-    drawText(page, "Tidak ada pekerjaan add-on pada periode ini.", 310, 548, 9.5, font, rgb(0.35, 0.35, 0.38));
+    drawText(page, "Tidak ada pekerjaan add-on pada periode ini.", 310, 534, 9.5, font, rgb(0.35, 0.35, 0.38));
   } else {
-    let addonY = 548;
+    let addonY = 534;
 
     addonRows.slice(0, 6).forEach((row) => {
       const label = `${row.addonTypeLabel} | Qty ${row.quantity}`;
@@ -204,40 +257,42 @@ export async function POST(request: Request) {
     });
   }
 
-  drawRule(page, 468);
+  drawRule(page, 454);
 
-  drawText(page, "Bonus KPI", 42, 446, 10.5, boldFont);
-  drawSummaryRow(page, "Nilai bonus", formatCurrency(slipData.bonusKpi), 428, font, boldFont);
-  drawText(
+  drawText(page, "Bonus KPI", 42, 432, 10.5, boldFont);
+  drawSummaryRow(page, "Nilai bonus", formatCurrency(slipData.bonusKpi), 414, font, boldFont);
+  drawWrappedText(
     page,
     slipData.bonusKpiMessage ?? "Bonus KPI mengikuti logic simulasi uang karyawan untuk bulan terpilih.",
     42,
-    412,
+    398,
+    210,
+    11,
     8.8,
     font,
     rgb(0.35, 0.35, 0.38),
   );
 
-  drawText(page, "Rekap Absensi", 310, 446, 10.5, boldFont);
-  drawSummaryRow(page, "Check in tepat waktu", `${slipData.attendanceRecap.onTime} kali`, 428, font, boldFont);
-  drawSummaryRow(page, "Check in terlambat", `${slipData.attendanceRecap.late} kali`, 412, font, boldFont);
+  drawText(page, "Rekap Absensi", 310, 432, 10.5, boldFont);
+  drawSummaryRow(page, "Check in tepat waktu", `${slipData.attendanceRecap.onTime} kali`, 414, font, boldFont);
+  drawSummaryRow(page, "Check in terlambat", `${slipData.attendanceRecap.late} kali`, 398, font, boldFont);
   drawSummaryRow(
     page,
     "Check out di atas jam 17.00",
     `${slipData.attendanceRecap.checkoutAfterFive} kali`,
-    396,
+    382,
     font,
     boldFont,
   );
 
-  drawRule(page, 376);
+  drawRule(page, 362);
 
-  drawText(page, "KPI", 42, 354, 10.5, boldFont);
+  drawText(page, "KPI", 42, 340, 10.5, boldFont);
   drawSummaryRow(
     page,
     `Nilai KPI ${slipData.selectedMonthLabel}`,
     slipData.monthlyKpi ? formatScore(slipData.monthlyKpi.totalScore) : "Belum tersedia",
-    336,
+    322,
     font,
     boldFont,
   );
@@ -245,12 +300,12 @@ export async function POST(request: Request) {
     page,
     "Nilai rata-rata KPI karyawan",
     slipData.averageKpi !== null ? formatScore(slipData.averageKpi) : "Belum tersedia",
-    320,
+    306,
     font,
     boldFont,
   );
 
-  drawRule(page, 286);
+  drawRule(page, 272);
 
   drawText(page, "Naila Salamah", 72, 178, 10, boldFont);
   drawText(page, "Finance", 72, 162, 9, font, rgb(0.35, 0.35, 0.38));
