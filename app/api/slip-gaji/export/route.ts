@@ -120,10 +120,12 @@ function drawSummaryRow(
   font: import("pdf-lib").PDFFont,
   boldFont: import("pdf-lib").PDFFont,
   strong = false,
+  leftX = 52,
+  valueRightX = 543,
 ) {
-  drawText(page, label, 52, y, strong ? 10 : 9.5, strong ? boldFont : font);
+  drawText(page, label, leftX, y, strong ? 10 : 9.5, strong ? boldFont : font);
   const rightWidth = (strong ? boldFont : font).widthOfTextAtSize(value, strong ? 10 : 9.5);
-  drawText(page, value, 543 - rightWidth, y, strong ? 10 : 9.5, strong ? boldFont : font);
+  drawText(page, value, valueRightX - rightWidth, y, strong ? 10 : 9.5, strong ? boldFont : font);
 }
 
 async function loadLogo() {
@@ -198,14 +200,14 @@ export async function POST(request: Request) {
   if (logoBytes) {
     try {
       const image = await pdf.embedPng(logoBytes);
-      const maxWidth = 112;
+      const maxWidth = 86;
       const scale = maxWidth / image.width;
       const width = image.width * scale;
       const height = image.height * scale;
 
       page.drawImage(image, {
         x: 42,
-        y: 748,
+        y: 760,
         width,
         height,
       });
@@ -233,9 +235,9 @@ export async function POST(request: Request) {
   drawRule(page, 574);
 
   drawText(page, "Detail Lembur", 42, 552, 10.5, boldFont);
-  drawSummaryRow(page, "Total jam lembur", formatHours(slipData.overtimeTotalHours), 534, font, boldFont);
-  drawSummaryRow(page, "Harga lembur per jam", formatCurrency(overtimeRate), 518, font, boldFont);
-  drawSummaryRow(page, "Total uang lembur", formatCurrency(totalOvertimePay), 502, font, boldFont);
+  drawSummaryRow(page, "Total jam lembur", formatHours(slipData.overtimeTotalHours), 534, font, boldFont, false, 52, 275);
+  drawSummaryRow(page, "Harga lembur per jam", formatCurrency(overtimeRate), 518, font, boldFont, false, 52, 275);
+  drawSummaryRow(page, "Total uang lembur", formatCurrency(totalOvertimePay), 502, font, boldFont, false, 52, 275);
 
   drawText(page, "Detail Pekerjaan Add-on", 310, 552, 10.5, boldFont);
   if (addonRows.length === 0) {
@@ -245,13 +247,13 @@ export async function POST(request: Request) {
 
     addonRows.slice(0, 6).forEach((row) => {
       const label = `${row.addonTypeLabel} | Qty ${row.quantity}`;
-      const middle = `${formatCurrency(row.price)}`;
+      const middle = `@ ${formatCurrency(row.price)}`;
       const total = formatCurrency(row.total);
       const middleWidth = font.widthOfTextAtSize(middle, 8.8);
       const totalWidth = boldFont.widthOfTextAtSize(total, 8.8);
 
       drawText(page, label, 310, addonY, 8.8, font);
-      drawText(page, middle, 470 - middleWidth, addonY, 8.8, font, rgb(0.35, 0.35, 0.38));
+      drawText(page, middle, 460 - middleWidth, addonY, 8.8, font, rgb(0.35, 0.35, 0.38));
       drawText(page, total, 545 - totalWidth, addonY, 8.8, boldFont);
       addonY -= 14;
     });
@@ -260,13 +262,13 @@ export async function POST(request: Request) {
   drawRule(page, 454);
 
   drawText(page, "Bonus KPI", 42, 432, 10.5, boldFont);
-  drawSummaryRow(page, "Nilai bonus", formatCurrency(slipData.bonusKpi), 414, font, boldFont);
+  drawSummaryRow(page, "Nilai bonus", formatCurrency(slipData.bonusKpi), 414, font, boldFont, false, 52, 275);
   drawWrappedText(
     page,
     slipData.bonusKpiMessage ?? "Bonus KPI mengikuti logic simulasi uang karyawan untuk bulan terpilih.",
     42,
     398,
-    210,
+    180,
     11,
     8.8,
     font,
@@ -274,8 +276,8 @@ export async function POST(request: Request) {
   );
 
   drawText(page, "Rekap Absensi", 310, 432, 10.5, boldFont);
-  drawSummaryRow(page, "Check in tepat waktu", `${slipData.attendanceRecap.onTime} kali`, 414, font, boldFont);
-  drawSummaryRow(page, "Check in terlambat", `${slipData.attendanceRecap.late} kali`, 398, font, boldFont);
+  drawSummaryRow(page, "Check in tepat waktu", `${slipData.attendanceRecap.onTime} kali`, 414, font, boldFont, false, 310, 545);
+  drawSummaryRow(page, "Check in terlambat", `${slipData.attendanceRecap.late} kali`, 398, font, boldFont, false, 310, 545);
   drawSummaryRow(
     page,
     "Check out di atas jam 17.00",
@@ -283,6 +285,9 @@ export async function POST(request: Request) {
     382,
     font,
     boldFont,
+    false,
+    310,
+    545,
   );
 
   drawRule(page, 362);
