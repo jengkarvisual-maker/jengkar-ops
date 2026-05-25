@@ -1,7 +1,7 @@
-import { AttendanceStatus, UserRole } from "@prisma/client";
+import { AttendanceStatus } from "@prisma/client";
 
-import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere } from "@/lib/user-archiving";
 import {
   buildWorkdayDateKey,
   getWorkdayOverrideMapForRange,
@@ -122,15 +122,9 @@ export async function getOwnerSlipGajiData(input?: {
     };
   }
 
+  const employeeWhere = await buildActiveKaryawanWhere(selectedUserId);
   const employee = await prisma.user.findFirst({
-    where: {
-      id: selectedUserId,
-      role: UserRole.KARYAWAN,
-      isActive: true,
-      email: {
-        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-      },
-    },
+    where: employeeWhere,
     select: {
       id: true,
       name: true,
@@ -147,6 +141,7 @@ export async function getOwnerSlipGajiData(input?: {
   }
 
   const { start, end } = getMonthBounds(selectedMonth.year, selectedMonth.month);
+  const activeEmployeeWhere = await buildActiveKaryawanWhere();
 
   const [
     attendanceRows,
@@ -223,11 +218,7 @@ export async function getOwnerSlipGajiData(input?: {
         year: selectedMonth.year,
         month: selectedMonth.month,
         user: {
-          role: UserRole.KARYAWAN,
-          isActive: true,
-          email: {
-            notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-          },
+          ...activeEmployeeWhere,
         },
       },
       select: {

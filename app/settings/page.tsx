@@ -10,6 +10,7 @@ import { canResetManagedPasswords, requireAuthenticatedUser } from "@/lib/auth";
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere, buildResettableUsersWhere } from "@/lib/user-archiving";
 import { addDays, formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -114,18 +115,7 @@ export default async function SettingsPage() {
 
 async function getResettableUsers(role: UserRole) {
   return prisma.user.findMany({
-    where:
-      role === UserRole.OWNER
-        ? {
-            role: {
-              in: [UserRole.ADMIN, UserRole.KARYAWAN],
-            },
-            isActive: true,
-          }
-        : {
-            role: UserRole.KARYAWAN,
-            isActive: true,
-          },
+    where: await buildResettableUsersWhere(role),
     orderBy: {
       name: "asc",
     },
@@ -225,13 +215,7 @@ async function getOwnerKpiLockData() {
 
 async function getOwnerTeamMembers() {
   return prisma.user.findMany({
-    where: {
-      role: UserRole.KARYAWAN,
-      isActive: true,
-      email: {
-        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-      },
-    },
+    where: await buildActiveKaryawanWhere(),
     orderBy: {
       name: "asc",
     },

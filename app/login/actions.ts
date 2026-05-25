@@ -3,6 +3,7 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { findUserByEmailWithArchiveState } from "@/lib/user-archiving";
 
 export type LoginActionState = {
   error: string | null;
@@ -37,14 +38,7 @@ export async function loginAction(
     };
   }
 
-  const existingProfile = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-    select: {
-      isActive: true,
-    },
-  });
+  const existingProfile = await findUserByEmailWithArchiveState(email);
 
   if (existingProfile && !existingProfile.isActive) {
     return {

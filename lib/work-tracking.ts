@@ -2,6 +2,7 @@ import { AddonType, Prisma, UserRole } from "@prisma/client";
 
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere } from "@/lib/user-archiving";
 import {
   formatMonthYear,
   getAppDateParts,
@@ -102,33 +103,13 @@ export function calculateOvertimeHours(
   return roundNumber(diffMs / (1000 * 60 * 60), 2);
 }
 
-function buildEmployeeWhere(userId?: string) {
-  if (!userId) {
-    return {
-      role: UserRole.KARYAWAN,
-      isActive: true,
-      email: {
-        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-      },
-    };
-  }
-
-  return {
-    role: UserRole.KARYAWAN,
-    isActive: true,
-    id: userId,
-    email: {
-      notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-    },
-  };
-}
-
 export async function getMonthlyOvertimeSummary(input: {
   year: number;
   month: number;
   userId?: string;
 }) {
   const { start, end } = getMonthBounds(input.year, input.month);
+  const employeeWhere = await buildActiveKaryawanWhere(input.userId);
   const attendanceRows = await prisma.attendance.findMany({
     where: {
       date: {
@@ -138,7 +119,7 @@ export async function getMonthlyOvertimeSummary(input: {
       checkOut: {
         not: null,
       },
-      user: buildEmployeeWhere(input.userId),
+      user: employeeWhere,
     },
     select: {
       id: true,
@@ -189,6 +170,7 @@ export async function getMonthlyAddonSummary(input: {
   userId?: string;
 }) {
   const { start, end } = getMonthBounds(input.year, input.month);
+  const employeeWhere = await buildActiveKaryawanWhere(input.userId);
   let addonRows: Array<{
     id: string;
     userId: string;
@@ -210,7 +192,7 @@ export async function getMonthlyAddonSummary(input: {
           gte: start,
           lt: end,
         },
-        user: buildEmployeeWhere(input.userId),
+        user: employeeWhere,
       },
       select: {
         id: true,

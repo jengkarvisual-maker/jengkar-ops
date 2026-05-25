@@ -2,6 +2,7 @@ import { AttendanceStatus, UserRole } from "@prisma/client";
 
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere } from "@/lib/user-archiving";
 import { getOwnerSlipGajiData } from "@/lib/slip-gaji";
 import {
   buildRecentMonthOptions,
@@ -396,14 +397,9 @@ function summarizeAttendance(attendanceRows: AttendanceItem[]) {
 }
 
 async function getAssignableUsers() {
+  const activeKaryawanWhere = await buildActiveKaryawanWhere();
   return prisma.user.findMany({
-    where: {
-      role: UserRole.KARYAWAN,
-      isActive: true,
-      email: {
-        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-      },
-    },
+    where: activeKaryawanWhere,
     orderBy: {
       name: "asc",
     },
@@ -686,23 +682,20 @@ async function buildOwnerDashboardData(input?: {
   const [teamUsers, yearlyRows, allMonthlyPeriodRows, lockedKpiRows, finance] =
     await Promise.all([
       getAssignableUsers(),
-      prisma.kpiYearly.findMany({
-        where: {
-          year: currentYear,
-          user: {
-            role: UserRole.KARYAWAN,
-            isActive: true,
-            email: {
-              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-            },
+      (async () => {
+        const activeKaryawanWhere = await buildActiveKaryawanWhere();
+        return prisma.kpiYearly.findMany({
+          where: {
+            year: currentYear,
+            user: activeKaryawanWhere,
           },
-        },
-        select: yearlyKpiRowSelect,
-        orderBy: {
-          avgScore: "desc",
-        },
-        take: 12,
-      }),
+          select: yearlyKpiRowSelect,
+          orderBy: {
+            avgScore: "desc",
+          },
+          take: 12,
+        });
+      })(),
       prisma.kpiMonthly.findMany({
         where: {
           user: {
@@ -770,23 +763,17 @@ async function buildOwnerDashboardData(input?: {
   const selectedKpiMonth = findMonthOption(kpiMonthOptions, input?.kpiMonthKey) ?? defaultKpiMonth;
   const monthlyRows = selectedKpiMonth
       ? await prisma.kpiMonthly.findMany({
-        where: {
-          year: selectedKpiMonth.year,
-          month: selectedKpiMonth.month,
-          user: {
-            role: UserRole.KARYAWAN,
-            isActive: true,
-            email: {
-              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-            },
+          where: {
+            year: selectedKpiMonth.year,
+            month: selectedKpiMonth.month,
+            user: await buildActiveKaryawanWhere(),
           },
-        },
-        select: monthlyKpiRowSelect,
-        orderBy: {
-          totalScore: "desc",
-        },
-        take: 12,
-      })
+          select: monthlyKpiRowSelect,
+          orderBy: {
+            totalScore: "desc",
+          },
+          take: 12,
+        })
     : [];
 
   const monthlyKpis = sortMonthlyKpisAlphabetically(mapMonthlyKpis(monthlyRows));
@@ -817,12 +804,7 @@ async function buildOwnerDashboardData(input?: {
         where: {
           year: selectedLockedMonth.year,
           month: selectedLockedMonth.month,
-          user: {
-            role: UserRole.KARYAWAN,
-            email: {
-              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-            },
-          },
+          user: await buildActiveKaryawanWhere(),
         },
         select: monthlyKpiRowSelect,
         orderBy: {
@@ -872,13 +854,7 @@ async function buildOwnerDashboardData(input?: {
               year: monthItem.year,
               month: monthItem.month,
             })),
-            user: {
-              role: UserRole.KARYAWAN,
-              isActive: true,
-              email: {
-                notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-              },
-            },
+            user: await buildActiveKaryawanWhere(),
           },
           select: {
             totalScore: true,
@@ -1091,13 +1067,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
         where: {
           year: currentYear,
           month: currentMonth,
-          user: {
-            role: UserRole.KARYAWAN,
-            isActive: true,
-            email: {
-              notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-            },
-          },
+          user: await buildActiveKaryawanWhere(),
         },
         select: monthlyKpiRowSelect,
       }),

@@ -6,6 +6,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { findUserByEmailWithArchiveState } from "@/lib/user-archiving";
 
 export type AuthenticatedUser = {
   id: string;
@@ -46,11 +47,7 @@ export const getAuthState = cache(async () => {
   }
 
   const email = user.email.toLowerCase();
-  const existingProfile = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
+  const existingProfile = await findUserByEmailWithArchiveState(email);
 
   if (!existingProfile) {
     return {

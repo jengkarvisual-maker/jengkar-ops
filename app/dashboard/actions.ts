@@ -9,6 +9,7 @@ import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere, hasUserArchivingColumns } from "@/lib/user-archiving";
 import { getWorkdayOverrideForDate, resolveWorkdaySchedule } from "@/lib/workday-overrides";
 import { getAddonTypeLabel, isEmployeeAddonStorageUnavailable } from "@/lib/work-tracking";
 import {
@@ -345,19 +346,35 @@ function parseMonthKey(value: FormDataEntryValue | null, fieldLabel: string) {
 }
 
 async function ensureAssignableUser(userId: string) {
-  const targetUser = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      role: true,
-      isActive: true,
-      name: true,
-    },
-  });
+  const supportsUserArchiving = await hasUserArchivingColumns();
+  const targetUser = supportsUserArchiving
+    ? await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          role: true,
+          isActive: true,
+          name: true,
+        },
+      })
+    : await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          role: true,
+          name: true,
+        },
+      });
 
-  if (!targetUser || targetUser.role !== UserRole.KARYAWAN || !targetUser.isActive) {
+  if (
+    !targetUser ||
+    targetUser.role !== UserRole.KARYAWAN ||
+    ("isActive" in targetUser && !targetUser.isActive)
+  ) {
     redirectWithFeedback("error", "Karyawan tujuan tidak ditemukan.");
   }
 
@@ -801,18 +818,33 @@ export async function updateManagerProgressInlineAction(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      role: true,
-      isActive: true,
-    },
-  });
+  const supportsUserArchiving = await hasUserArchivingColumns();
+  const targetUser = supportsUserArchiving
+    ? await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          role: true,
+          isActive: true,
+        },
+      })
+    : await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          role: true,
+        },
+      });
 
-  if (!targetUser || targetUser.role !== UserRole.KARYAWAN || !targetUser.isActive) {
+  if (
+    !targetUser ||
+    targetUser.role !== UserRole.KARYAWAN ||
+    ("isActive" in targetUser && !targetUser.isActive)
+  ) {
     return {
       ok: false,
       message: "Karyawan tujuan tidak ditemukan.",
@@ -1450,12 +1482,7 @@ export async function lockKpiMonthAction(formData: FormData) {
     where: {
       year: monthSelection.year,
       month: monthSelection.month,
-      user: {
-        role: UserRole.KARYAWAN,
-        email: {
-          notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-        },
-      },
+      user: await buildActiveKaryawanWhere(),
     },
   });
 
