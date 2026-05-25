@@ -7,10 +7,14 @@ export const revalidate = 0;
 
 export default async function Home() {
   if (await hasSupabaseSessionCookie()) {
-    const profile = await getCurrentUserProfile();
+    try {
+      const profile = await getCurrentUserProfile();
 
-    if (profile) {
-      redirect("/dashboard");
+      if (profile) {
+        redirect("/dashboard");
+      }
+    } catch (error) {
+      console.error("[ops-home] failed to resolve current user profile", error);
     }
   }
 
