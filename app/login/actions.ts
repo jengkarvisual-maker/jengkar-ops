@@ -1,6 +1,7 @@
 "use server";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LoginActionState = {
@@ -32,6 +33,23 @@ export async function loginAction(
   if (!email || !password) {
     return {
       error: "Email dan password wajib diisi.",
+      redirectTo: null,
+    };
+  }
+
+  const existingProfile = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+    select: {
+      isActive: true,
+    },
+  });
+
+  if (existingProfile && !existingProfile.isActive) {
+    return {
+      error:
+        "Akun ini sudah dinonaktifkan dari tim aktif Rumah Jengkar. Hubungi owner atau admin bila masih perlu akses.",
       redirectTo: null,
     };
   }

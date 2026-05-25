@@ -399,6 +399,7 @@ async function getAssignableUsers() {
   return prisma.user.findMany({
     where: {
       role: UserRole.KARYAWAN,
+      isActive: true,
       email: {
         notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
       },
@@ -690,6 +691,7 @@ async function buildOwnerDashboardData(input?: {
           year: currentYear,
           user: {
             role: UserRole.KARYAWAN,
+            isActive: true,
             email: {
               notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
             },
@@ -767,12 +769,13 @@ async function buildOwnerDashboardData(input?: {
     null;
   const selectedKpiMonth = findMonthOption(kpiMonthOptions, input?.kpiMonthKey) ?? defaultKpiMonth;
   const monthlyRows = selectedKpiMonth
-    ? await prisma.kpiMonthly.findMany({
+      ? await prisma.kpiMonthly.findMany({
         where: {
           year: selectedKpiMonth.year,
           month: selectedKpiMonth.month,
           user: {
             role: UserRole.KARYAWAN,
+            isActive: true,
             email: {
               notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
             },
@@ -871,6 +874,7 @@ async function buildOwnerDashboardData(input?: {
             })),
             user: {
               role: UserRole.KARYAWAN,
+              isActive: true,
               email: {
                 notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
               },
@@ -1089,6 +1093,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
           month: currentMonth,
           user: {
             role: UserRole.KARYAWAN,
+            isActive: true,
             email: {
               notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
             },

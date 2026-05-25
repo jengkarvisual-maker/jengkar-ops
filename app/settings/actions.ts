@@ -35,6 +35,11 @@ export type CreateEmployeeState = {
   success: string | null;
 };
 
+export type ArchiveEmployeeState = {
+  error: string | null;
+  success: string | null;
+};
+
 export type ResetManagedPasswordState = {
   error: string | null;
   success: string | null;
@@ -571,7 +576,13 @@ export async function createEmployeeAction(
     },
   });
 
-  if (existingProfile) {
+  const canReactivateArchivedProfile = Boolean(
+    existingProfile &&
+      !existingProfile.isActive &&
+      existingProfile.role === UserRole.KARYAWAN,
+  );
+
+  if (existingProfile && !canReactivateArchivedProfile) {
     return {
       error: "Email ini sudah terdaftar di aplikasi OPS.",
       success: null,
@@ -579,6 +590,7 @@ export async function createEmployeeAction(
   }
 
   let authUserId: string | null = null;
+  let createdAuthUserId: string | null = null;
 
   try {
     const { authUserId: existingAuthUserId, client: supabaseAdmin } =
@@ -592,7 +604,7 @@ export async function createEmployeeAction(
       };
     }
 
-    if (existingAuthUserId) {
+    if (existingAuthUserId && !canReactivateArchivedProfile) {
       return {
         error:
           "Email ini sudah terdaftar di sistem login. Gunakan email lain atau hubungi pengelola untuk sinkronisasi akun lama.",
@@ -600,38 +612,77 @@ export async function createEmployeeAction(
       };
     }
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        name,
-        role: UserRole.KARYAWAN,
-      },
-    });
+    if (existingAuthUserId) {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(existingAuthUserId, {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          name,
+          role: UserRole.KARYAWAN,
+        },
+      });
 
-    if (error || !data.user?.id) {
-      return {
-        error:
-          error?.message || "Akun login belum berhasil dibuat. Silakan coba beberapa saat lagi.",
-        success: null,
-      };
+      if (error) {
+        return {
+          error:
+            error.message || "Akun login lama belum berhasil diaktifkan kembali. Silakan coba lagi.",
+          success: null,
+        };
+      }
+
+      authUserId = existingAuthUserId;
+    } else {
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          name,
+          role: UserRole.KARYAWAN,
+        },
+      });
+
+      if (error || !data.user?.id) {
+        return {
+          error:
+            error?.message || "Akun login belum berhasil dibuat. Silakan coba beberapa saat lagi.",
+          success: null,
+        };
+      }
+
+      authUserId = data.user.id;
+      createdAuthUserId = data.user.id;
     }
 
-    authUserId = data.user.id;
-
-    await prisma.user.create({
-      data: {
-        name,
-        email,
-        role: UserRole.KARYAWAN,
-        authUserId,
-      },
-    });
+    if (existingProfile && canReactivateArchivedProfile) {
+      await prisma.user.update({
+        where: {
+          id: existingProfile.id,
+        },
+        data: {
+          name,
+          role: UserRole.KARYAWAN,
+          authUserId,
+          isActive: true,
+          archivedAt: null,
+        },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          name,
+          email,
+          role: UserRole.KARYAWAN,
+          authUserId,
+          isActive: true,
+        },
+      });
+    }
   } catch (error) {
-    if (authUserId) {
+    if (createdAuthUserId) {
       const supabaseAdmin = createSupabaseAdminClient();
-      await supabaseAdmin?.auth.admin.deleteUser(authUserId);
+      await supabaseAdmin?.auth.admin.deleteUser(createdAuthUserId);
     }
 
     console.error("createEmployeeAction", error);
@@ -647,7 +698,119 @@ export async function createEmployeeAction(
 
   return {
     error: null,
-    success: `${name} berhasil ditambahkan sebagai karyawan baru dan sudah bisa login dengan email ${email}.`,
+    success: canReactivateArchivedProfile
+      ? `${name} berhasil diaktifkan kembali sebagai karyawan dan sudah bisa login lagi dengan email ${email}.`
+      : `${name} berhasil ditambahkan sebagai karyawan baru dan sudah bisa login dengan email ${email}.`,
+  };
+}
+
+export async function archiveEmployeeAction(
+  _previousState: ArchiveEmployeeState,
+  formData: FormData,
+): Promise<ArchiveEmployeeState> {
+  const user = await requireAuthenticatedUser();
+  const ownerError = ensureOwner(user);
+
+  if (ownerError) {
+    return {
+      error: ownerError.error,
+      success: null,
+    };
+  }
+
+  const targetUserId = String(formData.get("targetUserId") ?? "").trim();
+
+  if (!targetUserId) {
+    return {
+      error: "Akun karyawan yang ingin dihapus belum valid.",
+      success: null,
+    };
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: {
+      id: targetUserId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      authUserId: true,
+    },
+  });
+
+  if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
+    return {
+      error: "Akun karyawan tidak ditemukan.",
+      success: null,
+    };
+  }
+
+  if (EXCLUDED_OPERATIONAL_EMAILS.includes(targetUser.email as (typeof EXCLUDED_OPERATIONAL_EMAILS)[number])) {
+    return {
+      error: "Akun operasional tidak bisa dihapus dari daftar karyawan aktif.",
+      success: null,
+    };
+  }
+
+  if (!targetUser.isActive) {
+    return {
+      error: null,
+      success: `${targetUser.name} sudah dinonaktifkan sebelumnya.`,
+    };
+  }
+
+  await prisma.user.update({
+    where: {
+      id: targetUser.id,
+    },
+    data: {
+      isActive: false,
+      archivedAt: new Date(),
+    },
+  });
+
+  let authCleanupMessage =
+    "Akun dinonaktifkan dan akses login baru akan ditolak oleh aplikasi OPS.";
+
+  try {
+    const { authUserId: existingAuthUserId, client: supabaseAdmin } =
+      await findSupabaseAuthUserIdByEmail(targetUser.email);
+    const authUserId = targetUser.authUserId ?? existingAuthUserId;
+
+    if (supabaseAdmin && authUserId) {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(authUserId);
+
+      if (error) {
+        console.error("archiveEmployeeAction.deleteSupabaseUser", error);
+        authCleanupMessage =
+          "Akun dinonaktifkan di OPS, tetapi akun login Supabase belum berhasil dibersihkan. Owner masih bisa mengulang proses ini nanti bila perlu.";
+      } else {
+        await prisma.user.update({
+          where: {
+            id: targetUser.id,
+          },
+          data: {
+            authUserId: null,
+          },
+        });
+        authCleanupMessage =
+          "Akun dinonaktifkan dan login Supabase berhasil dibersihkan.";
+      }
+    }
+  } catch (error) {
+    console.error("archiveEmployeeAction", error);
+    authCleanupMessage =
+      "Akun dinonaktifkan di OPS, tetapi pembersihan login eksternal perlu dicek manual.";
+  }
+
+  refreshDashboardAndSettings();
+
+  return {
+    error: null,
+    success: `${targetUser.name} berhasil dihapus dari daftar karyawan aktif. ${authCleanupMessage}`,
   };
 }
 
@@ -699,12 +862,20 @@ export async function resetManagedPasswordAction(
       email: true,
       name: true,
       role: true,
+      isActive: true,
     },
   });
 
   if (!targetUser) {
     return {
       error: "Akun tujuan tidak ditemukan.",
+      success: null,
+    };
+  }
+
+  if (!targetUser.isActive) {
+    return {
+      error: "Akun tujuan sudah dinonaktifkan, jadi password tidak perlu direset.",
       success: null,
     };
   }

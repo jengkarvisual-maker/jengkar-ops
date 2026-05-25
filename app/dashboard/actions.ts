@@ -352,11 +352,12 @@ async function ensureAssignableUser(userId: string) {
     select: {
       id: true,
       role: true,
+      isActive: true,
       name: true,
     },
   });
 
-  if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
+  if (!targetUser || targetUser.role !== UserRole.KARYAWAN || !targetUser.isActive) {
     redirectWithFeedback("error", "Karyawan tujuan tidak ditemukan.");
   }
 
@@ -807,10 +808,11 @@ export async function updateManagerProgressInlineAction(
     select: {
       id: true,
       role: true,
+      isActive: true,
     },
   });
 
-  if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
+  if (!targetUser || targetUser.role !== UserRole.KARYAWAN || !targetUser.isActive) {
     return {
       ok: false,
       message: "Karyawan tujuan tidak ditemukan.",

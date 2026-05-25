@@ -126,6 +126,7 @@ export async function getOwnerSlipGajiData(input?: {
     where: {
       id: selectedUserId,
       role: UserRole.KARYAWAN,
+      isActive: true,
       email: {
         notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
       },
@@ -223,6 +224,7 @@ export async function getOwnerSlipGajiData(input?: {
         month: selectedMonth.month,
         user: {
           role: UserRole.KARYAWAN,
+          isActive: true,
           email: {
             notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
           },

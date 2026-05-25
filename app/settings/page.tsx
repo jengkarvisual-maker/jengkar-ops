@@ -120,9 +120,11 @@ async function getResettableUsers(role: UserRole) {
             role: {
               in: [UserRole.ADMIN, UserRole.KARYAWAN],
             },
+            isActive: true,
           }
         : {
             role: UserRole.KARYAWAN,
+            isActive: true,
           },
     orderBy: {
       name: "asc",
@@ -225,6 +227,7 @@ async function getOwnerTeamMembers() {
   return prisma.user.findMany({
     where: {
       role: UserRole.KARYAWAN,
+      isActive: true,
       email: {
         notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
       },

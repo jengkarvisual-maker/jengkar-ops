@@ -13,6 +13,7 @@ export type AuthenticatedUser = {
   name: string;
   email: string;
   role: UserRole;
+  isActive: boolean;
 };
 
 export const getAuthState = cache(async () => {
@@ -52,6 +53,13 @@ export const getAuthState = cache(async () => {
   });
 
   if (!existingProfile) {
+    return {
+      sessionUser: user,
+      profile: null,
+    };
+  }
+
+  if (!existingProfile.isActive) {
     return {
       sessionUser: user,
       profile: null,

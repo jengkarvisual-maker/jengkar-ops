@@ -3,9 +3,19 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createEmployeeAction, type CreateEmployeeState } from "@/app/settings/actions";
+import {
+  archiveEmployeeAction,
+  createEmployeeAction,
+  type ArchiveEmployeeState,
+  type CreateEmployeeState,
+} from "@/app/settings/actions";
 
 const initialState: CreateEmployeeState = {
+  error: null,
+  success: null,
+};
+
+const initialArchiveState: ArchiveEmployeeState = {
   error: null,
   success: null,
 };
@@ -72,12 +82,17 @@ export function SettingsTeamForm({
   teamMembers,
 }: SettingsTeamFormProps) {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(createEmployeeAction, initialState);
+  const [state, formAction, isCreatePending] = useActionState(createEmployeeAction, initialState);
+  const [archiveState, archiveFormAction, isArchivePending] = useActionState(
+    archiveEmployeeAction,
+    initialArchiveState,
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const [visibleField, setVisibleField] = useState({
     password: false,
     confirm: false,
   });
+  const isPending = isCreatePending || isArchivePending;
 
   useEffect(() => {
     if (!state.success) {
@@ -87,6 +102,14 @@ export function SettingsTeamForm({
     formRef.current?.reset();
     router.refresh();
   }, [router, state.success]);
+
+  useEffect(() => {
+    if (!archiveState.success) {
+      return;
+    }
+
+    router.refresh();
+  }, [archiveState.success, router]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.47fr_0.53fr]">
@@ -123,13 +146,33 @@ export function SettingsTeamForm({
           {teamMembers.length > 0 ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {teamMembers.map((member) => (
-                <div
-                  key={member.id}
+                <form
+                  action={archiveFormAction}
                   className="rounded-[20px] border border-line bg-white px-4 py-3"
+                  key={member.id}
+                  onSubmit={(event) => {
+                    if (
+                      !window.confirm(
+                        `Hapus akun ${member.name} dari daftar karyawan aktif? Histori absensi, progres, KPI, dan data kerja lama tetap disimpan.`,
+                      )
+                    ) {
+                      event.preventDefault();
+                    }
+                  }}
                 >
+                  <input name="targetUserId" type="hidden" value={member.id} />
                   <p className="text-sm font-semibold text-foreground">{member.name}</p>
                   <p className="mt-1 text-xs text-muted">{member.email}</p>
-                </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      className="button-press ui-button-secondary border-danger/25 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isPending}
+                      type="submit"
+                    >
+                      {isArchivePending ? "Menghapus..." : "Hapus akun"}
+                    </button>
+                  </div>
+                </form>
               ))}
             </div>
           ) : (
@@ -137,6 +180,23 @@ export function SettingsTeamForm({
               Belum ada karyawan aktif yang tercatat.
             </p>
           )}
+
+          <p className="mt-4 text-xs leading-6 text-muted">
+            Akun yang dihapus akan dinonaktifkan dari daftar karyawan aktif dan tidak bisa login lagi.
+            Histori absensi, progres, KPI, serta catatan kerja lama tetap tersimpan demi keamanan data.
+          </p>
+
+          {archiveState.error ? (
+            <div className="mt-4 rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">
+              {archiveState.error}
+            </div>
+          ) : null}
+
+          {archiveState.success ? (
+            <div className="mt-4 rounded-[20px] border border-success/15 bg-success/10 px-4 py-3 text-sm text-success">
+              {archiveState.success}
+            </div>
+          ) : null}
         </div>
       </article>
 

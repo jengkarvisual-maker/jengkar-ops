@@ -106,6 +106,7 @@ function buildEmployeeWhere(userId?: string) {
   if (!userId) {
     return {
       role: UserRole.KARYAWAN,
+      isActive: true,
       email: {
         notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
       },
@@ -114,6 +115,7 @@ function buildEmployeeWhere(userId?: string) {
 
   return {
     role: UserRole.KARYAWAN,
+    isActive: true,
     id: userId,
     email: {
       notIn: [...EXCLUDED_OPERATIONAL_EMAILS],

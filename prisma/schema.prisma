@@ -47,6 +47,8 @@ model User {
   name          String
   email         String         @unique
   role          UserRole
+  isActive      Boolean        @default(true)
+  archivedAt    DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   attendances   Attendance[]
@@ -58,6 +60,8 @@ model User {
   yearlyKpis    KpiYearly[]
   lockedKpiMonths KpiMonthLock[] @relation("KpiMonthLockedBy")
   createdWorkdayOverrides WorkdayOverride[] @relation("WorkdayOverrideCreatedBy")
+
+  @@index([role, isActive])
 }
 
 model Attendance {
