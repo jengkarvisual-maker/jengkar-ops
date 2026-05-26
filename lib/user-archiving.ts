@@ -109,3 +109,42 @@ export async function findUserByEmailWithArchiveState(
     : null;
 }
 
+export async function findUserByIdWithArchiveState(
+  id: string,
+): Promise<UserArchiveAwareRecord | null> {
+  if (await hasUserArchivingColumns()) {
+    return prisma.user.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        authUserId: true,
+        isActive: true,
+      },
+    });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      authUserId: true,
+    },
+  });
+
+  return user
+    ? {
+        ...user,
+        isActive: true,
+      }
+    : null;
+}

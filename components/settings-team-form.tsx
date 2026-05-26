@@ -27,6 +27,7 @@ type TeamMemberSummary = {
 };
 
 type SettingsTeamFormProps = {
+  archiveFeatureReady: boolean;
   isProvisioningReady: boolean;
   teamMembers: TeamMemberSummary[];
 };
@@ -78,6 +79,7 @@ function PasswordField({
 }
 
 export function SettingsTeamForm({
+  archiveFeatureReady,
   isProvisioningReady,
   teamMembers,
 }: SettingsTeamFormProps) {
@@ -166,7 +168,7 @@ export function SettingsTeamForm({
                   <div className="mt-3 flex justify-end">
                     <button
                       className="button-press ui-button-secondary border-danger/25 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isPending}
+                      disabled={isPending || !archiveFeatureReady}
                       type="submit"
                     >
                       {isArchivePending ? "Menghapus..." : "Hapus akun"}
@@ -185,6 +187,14 @@ export function SettingsTeamForm({
             Akun yang dihapus akan dinonaktifkan dari daftar karyawan aktif dan tidak bisa login lagi.
             Histori absensi, progres, KPI, serta catatan kerja lama tetap tersimpan demi keamanan data.
           </p>
+
+          {!archiveFeatureReady ? (
+            <div className="mt-4 rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">
+              Tombol hapus akun belum aktif di server ini karena migration arsip akun belum dipasang.
+              Jalankan migration <span className="font-semibold">2026052501_add_user_archiving</span>{" "}
+              di VPS OPS lalu deploy ulang agar fitur bisa dipakai.
+            </div>
+          ) : null}
 
           {archiveState.error ? (
             <div className="mt-4 rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">

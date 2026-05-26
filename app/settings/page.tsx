@@ -10,7 +10,11 @@ import { canResetManagedPasswords, requireAuthenticatedUser } from "@/lib/auth";
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { buildActiveKaryawanWhere, buildResettableUsersWhere } from "@/lib/user-archiving";
+import {
+  buildActiveKaryawanWhere,
+  buildResettableUsersWhere,
+  hasUserArchivingColumns,
+} from "@/lib/user-archiving";
 import { addDays, formatMonthYear, getAppDateParts, getRoleLabel, startOfMonth } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +26,8 @@ export default async function SettingsPage() {
     user.role === UserRole.OWNER ? await getAttendanceSafeMonths() : [];
   const teamMembers =
     user.role === UserRole.OWNER ? await getOwnerTeamMembers() : [];
+  const archiveFeatureReady =
+    user.role === UserRole.OWNER ? await hasUserArchivingColumns() : false;
   const workdayOverrides =
     user.role === UserRole.OWNER ? await getOwnerWorkdayOverrides() : [];
   const resettableUsers = canResetManagedPasswords(user.role)
@@ -80,6 +86,7 @@ export default async function SettingsPage() {
       {user.role === UserRole.OWNER ? (
         <section className="mt-6 space-y-6">
           <SettingsTeamForm
+            archiveFeatureReady={archiveFeatureReady}
             isProvisioningReady={isSupabaseAdminConfigured()}
             teamMembers={teamMembers}
           />

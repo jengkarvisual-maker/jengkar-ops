@@ -17,6 +17,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isValidTimeInput } from "@/lib/workday-overrides";
 import {
+  findUserByEmailWithArchiveState,
+  findUserByIdWithArchiveState,
+  hasUserArchivingColumns,
+} from "@/lib/user-archiving";
+import {
   addDays,
   formatDate,
   formatMonthYear,
@@ -66,6 +71,9 @@ export type MaintenanceActionState = {
   success: string | null;
   preview: MaintenancePreview | null;
 };
+
+const USER_ARCHIVING_NOT_READY_MESSAGE =
+  "Fitur hapus akun belum bisa dijalankan karena database OPS di server belum memasang kolom arsip akun. Jalankan migration 2026052501_add_user_archiving terlebih dahulu, lalu deploy ulang aplikasi.";
 
 type MaintenanceRange = {
   fromDate: Date;
@@ -570,16 +578,14 @@ export async function createEmployeeAction(
     };
   }
 
-  const existingProfile = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
+  const supportsUserArchiving = await hasUserArchivingColumns();
+  const existingProfile = await findUserByEmailWithArchiveState(email);
 
   const canReactivateArchivedProfile = Boolean(
+    supportsUserArchiving &&
     existingProfile &&
-      !existingProfile.isActive &&
-      existingProfile.role === UserRole.KARYAWAN,
+    !existingProfile.isActive &&
+    existingProfile.role === UserRole.KARYAWAN,
   );
 
   if (existingProfile && !canReactivateArchivedProfile) {
@@ -664,8 +670,12 @@ export async function createEmployeeAction(
           name,
           role: UserRole.KARYAWAN,
           authUserId,
-          isActive: true,
-          archivedAt: null,
+          ...(supportsUserArchiving
+            ? {
+                isActive: true,
+                archivedAt: null,
+              }
+            : {}),
         },
       });
     } else {
@@ -675,7 +685,11 @@ export async function createEmployeeAction(
           email,
           role: UserRole.KARYAWAN,
           authUserId,
-          isActive: true,
+          ...(supportsUserArchiving
+            ? {
+                isActive: true,
+              }
+            : {}),
         },
       });
     }
@@ -727,19 +741,16 @@ export async function archiveEmployeeAction(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: {
-      id: targetUserId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      isActive: true,
-      authUserId: true,
-    },
-  });
+  const supportsUserArchiving = await hasUserArchivingColumns();
+
+  if (!supportsUserArchiving) {
+    return {
+      error: USER_ARCHIVING_NOT_READY_MESSAGE,
+      success: null,
+    };
+  }
+
+  const targetUser = await findUserByIdWithArchiveState(targetUserId);
 
   if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
     return {
@@ -852,19 +863,7 @@ export async function resetManagedPasswordAction(
     };
   }
 
-  const targetUser = await prisma.user.findUnique({
-    where: {
-      id: targetUserId,
-    },
-    select: {
-      id: true,
-      authUserId: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-    },
-  });
+  const targetUser = await findUserByIdWithArchiveState(targetUserId);
 
   if (!targetUser) {
     return {
