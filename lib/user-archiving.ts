@@ -13,6 +13,17 @@ export type UserArchiveAwareRecord = {
   isActive: boolean;
 };
 
+const LEGACY_ARCHIVED_EMAIL_PREFIX = "archived+";
+
+export function isLegacyArchivedEmail(email: string) {
+  return email.toLowerCase().startsWith(LEGACY_ARCHIVED_EMAIL_PREFIX);
+}
+
+export function buildLegacyArchivedEmail(email: string, userId: string) {
+  const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
+  return `${LEGACY_ARCHIVED_EMAIL_PREFIX}${timestamp}.${userId}.${email}`.toLowerCase();
+}
+
 export const hasUserArchivingColumns = cache(async () => {
   try {
     const rows = await prisma.$queryRaw<Array<{ column_name: string }>>`
@@ -32,11 +43,17 @@ export const hasUserArchivingColumns = cache(async () => {
 });
 
 export async function buildActiveKaryawanWhere(userId?: string): Promise<Prisma.UserWhereInput> {
+  const andFilters: Prisma.UserWhereInput[] = [
+    {
+      email: {
+        notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
+      },
+    },
+  ];
+
   const where: Prisma.UserWhereInput = {
     role: UserRole.KARYAWAN,
-    email: {
-      notIn: [...EXCLUDED_OPERATIONAL_EMAILS],
-    },
+    AND: andFilters,
   };
 
   if (userId) {
@@ -45,6 +62,14 @@ export async function buildActiveKaryawanWhere(userId?: string): Promise<Prisma.
 
   if (await hasUserArchivingColumns()) {
     where.isActive = true;
+  } else {
+    andFilters.push({
+      email: {
+        not: {
+          startsWith: LEGACY_ARCHIVED_EMAIL_PREFIX,
+        },
+      },
+    });
   }
 
   return where;
@@ -64,6 +89,12 @@ export async function buildResettableUsersWhere(role: UserRole): Promise<Prisma.
 
   if (await hasUserArchivingColumns()) {
     where.isActive = true;
+  } else {
+    where.email = {
+      not: {
+        startsWith: LEGACY_ARCHIVED_EMAIL_PREFIX,
+      },
+    };
   }
 
   return where;
@@ -104,7 +135,7 @@ export async function findUserByEmailWithArchiveState(
   return user
     ? {
         ...user,
-        isActive: true,
+        isActive: !isLegacyArchivedEmail(user.email),
       }
     : null;
 }
@@ -144,7 +175,7 @@ export async function findUserByIdWithArchiveState(
   return user
     ? {
         ...user,
-        isActive: true,
+        isActive: !isLegacyArchivedEmail(user.email),
       }
     : null;
 }

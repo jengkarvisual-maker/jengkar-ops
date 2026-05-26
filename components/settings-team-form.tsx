@@ -168,7 +168,7 @@ export function SettingsTeamForm({
                   <div className="mt-3 flex justify-end">
                     <button
                       className="button-press ui-button-secondary border-danger/25 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isPending || !archiveFeatureReady}
+                      disabled={isPending}
                       type="submit"
                     >
                       {isArchivePending ? "Menghapus..." : "Hapus akun"}
@@ -190,9 +190,10 @@ export function SettingsTeamForm({
 
           {!archiveFeatureReady ? (
             <div className="mt-4 rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">
-              Tombol hapus akun belum aktif di server ini karena migration arsip akun belum dipasang.
-              Jalankan migration <span className="font-semibold">2026052501_add_user_archiving</span>{" "}
-              di VPS OPS lalu deploy ulang agar fitur bisa dipakai.
+              Server ini masih memakai mode kompatibilitas sementara karena migration arsip akun
+              belum dipasang. Tombol hapus akun tetap bisa dipakai, tetapi saya tetap sarankan
+              jalankan migration <span className="font-semibold">2026052501_add_user_archiving</span>{" "}
+              di VPS OPS agar mode arsip akun berjalan penuh.
             </div>
           ) : null}
 

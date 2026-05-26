@@ -17,9 +17,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isValidTimeInput } from "@/lib/workday-overrides";
 import {
+  buildLegacyArchivedEmail,
   findUserByEmailWithArchiveState,
   findUserByIdWithArchiveState,
   hasUserArchivingColumns,
+  isLegacyArchivedEmail,
 } from "@/lib/user-archiving";
 import {
   addDays,
@@ -71,9 +73,6 @@ export type MaintenanceActionState = {
   success: string | null;
   preview: MaintenancePreview | null;
 };
-
-const USER_ARCHIVING_NOT_READY_MESSAGE =
-  "Fitur hapus akun belum bisa dijalankan karena database OPS di server belum memasang kolom arsip akun. Jalankan migration 2026052501_add_user_archiving terlebih dahulu, lalu deploy ulang aplikasi.";
 
 type MaintenanceRange = {
   fromDate: Date;
@@ -743,13 +742,6 @@ export async function archiveEmployeeAction(
 
   const supportsUserArchiving = await hasUserArchivingColumns();
 
-  if (!supportsUserArchiving) {
-    return {
-      error: USER_ARCHIVING_NOT_READY_MESSAGE,
-      success: null,
-    };
-  }
-
   const targetUser = await findUserByIdWithArchiveState(targetUserId);
 
   if (!targetUser || targetUser.role !== UserRole.KARYAWAN) {
@@ -773,15 +765,27 @@ export async function archiveEmployeeAction(
     };
   }
 
-  await prisma.user.update({
-    where: {
-      id: targetUser.id,
-    },
-    data: {
-      isActive: false,
-      archivedAt: new Date(),
-    },
-  });
+  if (supportsUserArchiving) {
+    await prisma.user.update({
+      where: {
+        id: targetUser.id,
+      },
+      data: {
+        isActive: false,
+        archivedAt: new Date(),
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: {
+        id: targetUser.id,
+      },
+      data: {
+        authUserId: null,
+        email: buildLegacyArchivedEmail(targetUser.email, targetUser.id),
+      },
+    });
+  }
 
   let authCleanupMessage =
     "Akun dinonaktifkan dan akses login baru akan ditolak oleh aplikasi OPS.";
@@ -794,23 +798,31 @@ export async function archiveEmployeeAction(
     if (supabaseAdmin && authUserId) {
       const { error } = await supabaseAdmin.auth.admin.deleteUser(authUserId);
 
-      if (error) {
-        console.error("archiveEmployeeAction.deleteSupabaseUser", error);
-        authCleanupMessage =
-          "Akun dinonaktifkan di OPS, tetapi akun login Supabase belum berhasil dibersihkan. Owner masih bisa mengulang proses ini nanti bila perlu.";
-      } else {
-        await prisma.user.update({
-          where: {
-            id: targetUser.id,
-          },
-          data: {
-            authUserId: null,
-          },
-        });
-        authCleanupMessage =
-          "Akun dinonaktifkan dan login Supabase berhasil dibersihkan.";
+        if (error) {
+          console.error("archiveEmployeeAction.deleteSupabaseUser", error);
+          authCleanupMessage =
+            "Akun dinonaktifkan di OPS, tetapi akun login Supabase belum berhasil dibersihkan. Owner masih bisa mengulang proses ini nanti bila perlu.";
+        } else {
+          const authCleanupData = supportsUserArchiving
+            ? {
+                authUserId: null,
+              }
+            : {
+                authUserId: null,
+                email: isLegacyArchivedEmail(targetUser.email)
+                  ? targetUser.email
+                  : buildLegacyArchivedEmail(targetUser.email, targetUser.id),
+              };
+          await prisma.user.update({
+            where: {
+              id: targetUser.id,
+            },
+            data: authCleanupData,
+          });
+          authCleanupMessage =
+            "Akun dinonaktifkan dan login Supabase berhasil dibersihkan.";
+        }
       }
-    }
   } catch (error) {
     console.error("archiveEmployeeAction", error);
     authCleanupMessage =
