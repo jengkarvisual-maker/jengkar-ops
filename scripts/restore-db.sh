@@ -20,10 +20,12 @@ if [[ -z "${TARGET_DATABASE_URL}" ]]; then
   exit 1
 fi
 
+SANITIZED_TARGET_DATABASE_URL="$(python3 "$(dirname "$0")/sanitize-db-url.py" "${TARGET_DATABASE_URL}")"
+
 pg_restore \
   --no-owner \
   --no-privileges \
-  --dbname="${TARGET_DATABASE_URL}" \
+  --dbname="${SANITIZED_TARGET_DATABASE_URL}" \
   "${INPUT_FILE}"
 
 echo "Restore completed into target database."

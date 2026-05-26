@@ -8,6 +8,8 @@ if [[ -z "${DB_URL}" ]]; then
   exit 1
 fi
 
+SANITIZED_DB_URL="$(python3 "$(dirname "$0")/sanitize-db-url.py" "${DB_URL}")"
+
 BACKUP_DIR="${BACKUP_DIR:-$(pwd)/backups}"
 APP_NAME="${APP_NAME:-jengkar-ops}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
@@ -20,6 +22,6 @@ pg_dump \
   --no-owner \
   --no-privileges \
   --file="${OUTPUT_FILE}" \
-  "${DB_URL}"
+  "${SANITIZED_DB_URL}"
 
 echo "Database backup created at ${OUTPUT_FILE}"
