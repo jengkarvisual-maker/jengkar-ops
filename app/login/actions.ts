@@ -3,6 +3,7 @@
 import { hashPassword, getLegacySeedPassword, verifyPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 import { clearLocalSession, createLocalSession } from "@/lib/session";
+import { verifyLegacySupabasePassword } from "@/lib/supabase-password-migration";
 import { findUserByEmailWithArchiveState } from "@/lib/user-archiving";
 
 export type LoginActionState = {
@@ -69,15 +70,19 @@ export async function loginAction(
   const legacySeedPassword = getLegacySeedPassword(email);
   const isLegacySeedPasswordValid =
     !userWithPassword.passwordHash && legacySeedPassword === password;
+  const isLegacySupabasePasswordValid =
+    !isPasswordValid &&
+    !isLegacySeedPasswordValid &&
+    (await verifyLegacySupabasePassword(email, password));
 
-  if (!isPasswordValid && !isLegacySeedPasswordValid) {
+  if (!isPasswordValid && !isLegacySeedPasswordValid && !isLegacySupabasePasswordValid) {
     return {
       error: "Login gagal. Pastikan email dan password sudah benar.",
       redirectTo: null,
     };
   }
 
-  if (isLegacySeedPasswordValid) {
+  if (isLegacySeedPasswordValid || isLegacySupabasePasswordValid) {
     await prisma.user.update({
       where: {
         id: userWithPassword.id,

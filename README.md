@@ -30,6 +30,7 @@ Catatan:
 - `DATABASE_URL` adalah koneksi runtime aplikasi ke database PostgreSQL VPS.
 - `DIRECT_URL` dipakai Prisma untuk operasi schema/migration.
 - `AUTH_SECRET` dipakai untuk tanda tangan cookie session lokal. Gunakan nilai panjang dan acak di production.
+- `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` boleh dipasang sementara hanya untuk migrasi password lama. Jika user login berhasil memakai password lama Supabase, aplikasi langsung menyimpan hash lokal ke PostgreSQL VPS.
 - Jangan gunakan file `.env` di root repo. Command utama sengaja diblokir jika `.env` ada.
 
 ## Setup Lokal
@@ -93,3 +94,4 @@ npx prisma db execute --url "$DATABASE_URL" --file prisma/migrations/2026060102_
 - `lib/auth.ts` memvalidasi session lokal dan profil user aktif dari database aplikasi.
 - Password disimpan di kolom `User.passwordHash` menggunakan PBKDF2 SHA-256.
 - Kolom `User.authUserId` masih ada sebagai data legacy agar migration aman, tetapi tidak dipakai untuk login aktif.
+- Supabase Auth hanya dipakai sebagai fallback verifikasi password lama selama masa migrasi login, bukan sebagai session, database, storage, atau sumber data aplikasi.
