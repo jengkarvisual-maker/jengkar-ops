@@ -1,13 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { OPS_SESSION_COOKIE } from "@/lib/session";
 
-function hasSupabaseAuthCookie(request: NextRequest) {
-  return request.cookies
-    .getAll()
-    .some(
-      ({ name }) => name.startsWith("sb-") && name.includes("-auth-token"),
-    );
+function hasLocalSessionCookie(request: NextRequest) {
+  return Boolean(request.cookies.get(OPS_SESSION_COOKIE)?.value);
 }
 
 export async function proxy(request: NextRequest) {
@@ -15,16 +11,12 @@ export async function proxy(request: NextRequest) {
     request,
   });
 
-  if (!isSupabaseConfigured()) {
-    return response;
-  }
-
   const pathname = request.nextUrl.pathname;
   const isProtectedRoute =
     pathname.startsWith("/dashboard") || pathname.startsWith("/settings");
-  const hasAuthCookie = hasSupabaseAuthCookie(request);
+  const hasAuthCookie = hasLocalSessionCookie(request);
 
-  // Fast-path anonymous requests without calling Supabase on every click.
+  // Fast-path anonymous requests without doing database work on every click.
   // Authoritative auth/profile checks still happen inside server components and actions.
   if (isProtectedRoute && !hasAuthCookie) {
     return NextResponse.redirect(new URL("/login", request.url));

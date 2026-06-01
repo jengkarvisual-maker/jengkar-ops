@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUserProfile, hasSupabaseSessionCookie } from "@/lib/auth";
+import { getCurrentUserProfile, hasLocalSessionCookie } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function Home() {
-  if (await hasSupabaseSessionCookie()) {
+  if (await hasLocalSessionCookie()) {
     try {
       const profile = await getCurrentUserProfile();
 

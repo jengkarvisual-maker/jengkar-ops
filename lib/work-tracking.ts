@@ -1,6 +1,5 @@
-import { AddonType, Prisma, UserRole } from "@prisma/client";
+import { AddonType, Prisma } from "@prisma/client";
 
-import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { buildActiveKaryawanWhere } from "@/lib/user-archiving";
 import {
@@ -19,6 +18,11 @@ export const ADDON_TYPE_LABELS: Record<AddonType, string> = {
   MOTRET_JV: "Motret JV",
   ASSIST_MAKEUP: "Assist Makeup",
   LUAR_KOTA: "Luar Kota",
+  MAKEUP_BLISS_TEAM: "Makeup Bliss Team",
+  ASSIST_MU_PARTY: "Assist MU Party",
+  ASSIST_MU_ENGAGEMENT: "Assist MU Engagement",
+  ASSIST_MU_WEDDING: "Assist MU Wedding",
+  ASSIST_MU_CLASS: "Assist MU Class",
 };
 
 export const ADDON_TYPE_OPTIONS = (Object.entries(ADDON_TYPE_LABELS) as Array<
@@ -177,6 +181,7 @@ export async function getMonthlyAddonSummary(input: {
     addonDate: Date;
     addonType: AddonType;
     addonQuantity: number;
+    note: string | null;
     createdAt: Date;
     updatedAt: Date;
     user: {
@@ -200,6 +205,7 @@ export async function getMonthlyAddonSummary(input: {
         addonDate: true,
         addonType: true,
         addonQuantity: true,
+        note: true,
         createdAt: true,
         updatedAt: true,
         user: {
@@ -233,6 +239,7 @@ export async function getMonthlyAddonSummary(input: {
     addonType: row.addonType,
     addonTypeLabel: getAddonTypeLabel(row.addonType),
     addonQuantity: row.addonQuantity,
+    note: row.note,
     monthTotalQuantity: monthlyTotals.get(row.userId) ?? row.addonQuantity,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

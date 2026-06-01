@@ -4,11 +4,6 @@
   "private": true,
   "scripts": {
     "check:env": "node scripts/ensure-no-root-env.mjs",
-    "env:pull": "npx vercel env pull .env.local --yes",
-    "env:pull:development": "npx vercel env pull .env.local --environment=development --yes",
-    "env:pull:preview": "npx vercel env pull .env.local --environment=preview --yes",
-    "env:pull:production": "npx vercel env pull .env.local --environment=production --yes",
-    "deploy:prod": "npm run env:pull:production && npx vercel --prod",
     "predev": "npm run check:env",
     "prebuild": "npm run check:env",
     "pretypecheck": "npm run check:env",
@@ -26,8 +21,6 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.3",
     "next": "^16.2.4",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.0",

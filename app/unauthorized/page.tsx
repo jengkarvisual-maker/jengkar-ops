@@ -11,9 +11,9 @@ export default function UnauthorizedPage() {
         </div>
         <h1 className="mt-4 text-4xl font-extrabold tracking-[-0.04em] text-foreground">Akun Anda belum terhubung ke profil aplikasi.</h1>
         <p className="mt-4 text-base leading-8 text-muted">
-          Hal ini biasanya terjadi jika akun Supabase Auth sudah aktif, tetapi email
-          tersebut belum terdaftar pada tabel user aplikasi. Minta Owner atau Admin
-          untuk menjalankan seed atau menambahkan profil Anda lebih dahulu.
+          Hal ini biasanya terjadi jika sesi login lokal aktif, tetapi profil user belum
+          tersedia atau sudah dinonaktifkan pada database OPS. Minta Owner atau Admin
+          untuk mengecek status akun Anda.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">

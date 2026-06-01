@@ -34,6 +34,11 @@ enum AddonType {
   MOTRET_JV
   ASSIST_MAKEUP
   LUAR_KOTA
+  MAKEUP_BLISS_TEAM
+  ASSIST_MU_PARTY
+  ASSIST_MU_ENGAGEMENT
+  ASSIST_MU_WEDDING
+  ASSIST_MU_CLASS
 }
 
 enum WorkdayOverrideType {
@@ -44,6 +49,7 @@ enum WorkdayOverrideType {
 model User {
   id            String         @id @default(cuid())
   authUserId    String?        @unique @db.Uuid
+  passwordHash  String?
   name          String
   email         String         @unique
   role          UserRole
@@ -176,6 +182,7 @@ model EmployeeAddon {
   addonDate     DateTime  @db.Date
   addonType     AddonType
   addonQuantity Int
+  note          String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)

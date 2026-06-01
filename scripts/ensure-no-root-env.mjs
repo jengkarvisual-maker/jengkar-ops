@@ -10,12 +10,14 @@ if (existsSync(rootEnvPath)) {
   console.error("Gunakan .env.local untuk local development.");
   console.error("");
   console.error("Alur yang benar:");
-  console.error("1. npm run env:pull:development");
-  console.error("2. npm run dev");
+  console.error("1. Salin .env.example ke .env.local");
+  console.error("2. Isi DATABASE_URL, DIRECT_URL, dan AUTH_SECRET");
+  console.error("3. npm run dev");
   console.error("");
   console.error("Untuk deploy production:");
-  console.error("1. npm run env:pull:production");
-  console.error("2. npm run deploy:prod");
+  console.error("1. Simpan env di PM2/systemd atau shell VPS");
+  console.error("2. npm run build");
+  console.error("3. pm2 restart ops-app --update-env");
   console.error("");
   console.error("Jika file .env dibuat tidak sengaja, pindahkan isinya ke .env.local lalu hapus file .env tersebut.");
   process.exit(1);

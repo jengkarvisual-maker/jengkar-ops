@@ -1,90 +1,42 @@
-## JENGKAR KPI
+## JENGKAR OPS
 
-Aplikasi KPI management untuk tim kreatif Rumah Jengkar dengan fondasi:
+Aplikasi operasional Rumah Jengkar untuk KPI, absensi, finance, dan monitoring pekerjaan tim.
+
+Fondasi utama:
 - Next.js 16 App Router
 - TypeScript
 - Prisma ORM
-- Supabase PostgreSQL + Auth
+- PostgreSQL VPS
+- Session login lokal berbasis cookie bertanda tangan
 - Tailwind CSS v4
-- Server-side auth guard
 - Dashboard multi-role: Owner, Admin, Karyawan
 
-Domain target production:
+Domain production:
 - `https://ops.rumahjengkar.com`
 
-## Status Fondasi Saat Ini
+## Environment
 
-Fondasi repo ini sekarang sudah diselaraskan dengan kebutuhan produk utama Anda:
-- schema Prisma sudah mencakup `User`, `Attendance`, `DailyProgress`, `KpiMonthly`, `KpiYearly`, dan `CompanyFinance`
-- helper Supabase Auth dan guard route sudah tersedia
-- login page dan dashboard multi-role dasar sudah tersedia
-- util bisnis untuk KPI bulanan, KPI tahunan, bonus pool, dan bonus individual sudah tersedia
-- seed user internal sudah tersedia
+Gunakan `.env.local` untuk development lokal. Production di VPS memakai environment dari PM2/systemd/shell, bukan Supabase atau Vercel.
 
-Yang masih menjadi tahap berikutnya adalah mengisi modul CRUD dan workflow operasional lebih detail di atas fondasi ini.
-
-## Struktur Folder
-
-```text
-app/
-components/
-lib/
-prisma/
-types/
-```
-
-## Environment Variables
-
-Gunakan `.env.local` untuk local development, dan simpan rahasia production di Vercel Project Settings.
-
-Template variabel yang dibutuhkan ada di `.env.example`:
+Template ada di `.env.example`:
 
 ```bash
-DATABASE_URL="postgresql://postgres:password@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
-DIRECT_URL="postgresql://postgres:password@db.project.supabase.co:5432/postgres?sslmode=require"
-NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
-SUPABASE_SERVICE_ROLE_KEY="your-optional-service-role-key"
+DATABASE_URL="postgresql://ops_user:password@127.0.0.1:5432/ops_db?schema=public&connection_limit=5&pool_timeout=20"
+DIRECT_URL="postgresql://ops_user:password@127.0.0.1:5432/ops_db?schema=public&connection_limit=5&pool_timeout=20"
+AUTH_SECRET="generate-a-long-random-secret-for-signed-session-cookies"
 ```
 
 Catatan:
-- `DATABASE_URL` disarankan memakai `transaction pooler` Supabase untuk runtime serverless seperti Vercel agar koneksi tidak cepat habis.
-- `DIRECT_URL` dipakai Prisma untuk operasi schema seperti `db push` atau migration.
-- Jangan gunakan file `.env` di root repo. Workflow OPS sekarang sengaja memblokir command utama jika file `.env` masih ada.
-- `SUPABASE_SERVICE_ROLE_KEY` bersifat opsional, tetapi sangat membantu jika Anda ingin `prisma db seed` sekaligus membuat akun Supabase Auth otomatis.
-- Tanpa service role key, seed tetap membuat profil user di database aplikasi. Akun auth bisa dibuat manual di dashboard Supabase dengan email yang sama.
-
-## Workflow Env Resmi
-
-Untuk local development:
-
-```bash
-npm run env:pull:development
-npm run dev
-```
-
-Untuk sinkronisasi env production ke `.env.local` sebelum pengecekan lokal:
-
-```bash
-npm run env:pull:production
-```
-
-Untuk deploy production:
-
-```bash
-npm run deploy:prod
-```
-
-Prinsip workflow ini:
-- `Vercel Project Settings` adalah sumber utama env untuk deploy online
-- `.env.local` hanya untuk kebutuhan lokal
-- `.env` di root repo tidak dipakai lagi
+- `DATABASE_URL` adalah koneksi runtime aplikasi ke database PostgreSQL VPS.
+- `DIRECT_URL` dipakai Prisma untuk operasi schema/migration.
+- `AUTH_SECRET` dipakai untuk tanda tangan cookie session lokal. Gunakan nilai panjang dan acak di production.
+- Jangan gunakan file `.env` di root repo. Command utama sengaja diblokir jika `.env` ada.
 
 ## Setup Lokal
 
 ```bash
-npm run env:pull:development
 npm install
+cp .env.example .env.local
 npm run db:generate
 npm run db:push
 npm run db:seed
@@ -96,26 +48,12 @@ Buka:
 
 ## Seed Akun Awal
 
-Seed menyiapkan user internal berikut:
+Seed menyiapkan user internal dari `lib/constants.ts` dan menyimpan password sebagai hash lokal.
 
-Owner:
-- `owner@jengkar.com`
-
-Admin:
-- `admin@jengkar.com`
-
-Karyawan:
-- `nuzulul@jengkar.com`
-- `cepi@jengkar.com`
-- `ilham@jengkar.com`
-- `zaka@jengkar.com`
-- `yongki@jengkar.com`
-- `naila@jengkar.com`
-- `lugas@jengkar.com`
-- `sindy@jengkar.com`
-
-Default password jika service role dipakai saat seed:
+Default password seed:
 - `12345678`
+
+Beberapa akun dapat memiliki password awal khusus sesuai definisi di `INITIAL_USERS`.
 
 ## Build & Validasi
 
@@ -125,19 +63,33 @@ npm run lint
 npm run build
 ```
 
+## Deploy VPS Hostinger
+
+Production `ops.rumahjengkar.com` berjalan di VPS Hostinger melalui PM2 dan Nginx.
+
+Alur deploy:
+
+```bash
+cd /var/www/ops-app
+git pull origin codex/ops-vps-migration
+npm install
+npx prisma generate
+npm run build
+pm2 restart ops-app --update-env
+pm2 save
+```
+
+Untuk migration production, jalankan migration hanya ke PostgreSQL VPS yang dipakai PM2:
+
+```bash
+npx prisma db execute --url "$DATABASE_URL" --file prisma/migrations/2026060101_add_employee_addon_note_and_types/migration.sql
+npx prisma db execute --url "$DATABASE_URL" --file prisma/migrations/2026060102_add_local_auth_password_hash/migration.sql
+```
+
 ## Catatan Arsitektur
 
-- Route `/dashboard` memutuskan tampilan berdasarkan role user yang login.
-- Guard auth dilakukan berlapis:
-  - `proxy.ts` menjaga route login/dashboard berdasarkan sesi Supabase
-  - `lib/auth.ts` memastikan user auth benar-benar punya profil aplikasi yang valid
-- Relasi user aplikasi dan user Supabase dipautkan lewat email pada login pertama, lalu disimpan ke `authUserId`.
-- Formula KPI dan bonus disiapkan di `lib/utils.ts` agar aturan bisnis tetap terpusat.
-
-## Deploy ke Vercel
-
-1. Tambahkan environment variables di Vercel Project Settings.
-2. Pastikan `DATABASE_URL` memakai `transaction pooler` dan `DIRECT_URL` memakai koneksi direct atau session pooler yang stabil untuk operasi schema.
-3. Jika perlu cek lokal dengan env production, jalankan `npm run env:pull:production`.
-4. Deploy dengan `npm run deploy:prod`.
-5. Kaitkan domain `ops.rumahjengkar.com` ke project Vercel.
+- Route `/dashboard` menampilkan panel berdasarkan role user yang login.
+- `proxy.ts` menjaga route login/dashboard/settings berdasarkan cookie session lokal.
+- `lib/auth.ts` memvalidasi session lokal dan profil user aktif dari database aplikasi.
+- Password disimpan di kolom `User.passwordHash` menggunakan PBKDF2 SHA-256.
+- Kolom `User.authUserId` masih ada sebagai data legacy agar migration aman, tetapi tidak dipakai untuk login aktif.

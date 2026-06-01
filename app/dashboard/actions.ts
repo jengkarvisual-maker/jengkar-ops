@@ -5,7 +5,6 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { canManageFinance, canManageProgress, requireAuthenticatedUser } from "@/lib/auth";
-import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
 import { isKnownJobName } from "@/lib/job-catalog";
 import { syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
@@ -94,6 +93,7 @@ export type EmployeeAddonMutationRow = {
   addonType: AddonType;
   addonTypeLabel: string;
   addonQuantity: number;
+  note: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -132,6 +132,7 @@ function serializeEmployeeAddonRow(row: {
   addonDate: Date;
   addonType: AddonType;
   addonQuantity: number;
+  note: string | null;
   createdAt: Date;
   updatedAt: Date;
   user: {
@@ -146,6 +147,7 @@ function serializeEmployeeAddonRow(row: {
     addonType: row.addonType,
     addonTypeLabel: getAddonTypeLabel(row.addonType),
     addonQuantity: row.addonQuantity,
+    note: row.note,
     createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
     updatedAt: toIsoDateValue(row.updatedAt) ?? new Date().toISOString(),
   };
@@ -311,6 +313,22 @@ function parseAddonQuantity(value: FormDataEntryValue | null) {
   }
 
   return quantity;
+}
+
+function parseAddonNote(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+
+  if (normalized.length > 1000) {
+    return {
+      ok: false as const,
+      message: "Keterangan tambahan maksimal 1000 karakter.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: normalized || null,
+  };
 }
 
 function parseYear(value: FormDataEntryValue | null) {
@@ -1337,6 +1355,7 @@ export async function saveEmployeeAddonAction(
   try {
     const addonType = parseAddonType(formData.get("addonType"));
     const addonQuantity = parseAddonQuantity(formData.get("addonQuantity"));
+    const addonNote = parseAddonNote(formData.get("note"));
 
     if (!addonType) {
       return {
@@ -1352,6 +1371,13 @@ export async function saveEmployeeAddonAction(
       };
     }
 
+    if (!addonNote.ok) {
+      return {
+        ok: false,
+        message: addonNote.message,
+      };
+    }
+
     const addonDate = startOfDay(new Date());
 
     const created = await prisma.employeeAddon.create({
@@ -1360,6 +1386,7 @@ export async function saveEmployeeAddonAction(
         addonDate,
         addonType,
         addonQuantity,
+        note: addonNote.value,
       },
       include: {
         user: {

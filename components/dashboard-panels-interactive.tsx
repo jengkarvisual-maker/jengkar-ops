@@ -161,6 +161,7 @@ function serializeAddonRows(
     addonType: row.addonType,
     addonTypeLabel: row.addonTypeLabel,
     addonQuantity: row.addonQuantity,
+    note: row.note,
     createdAt: toIsoDateValue(row.createdAt) ?? new Date().toISOString(),
     updatedAt: toIsoDateValue(row.updatedAt) ?? new Date().toISOString(),
   }));
@@ -437,6 +438,7 @@ function AddonTable({
             <th className="px-4 py-3 font-semibold">Tanggal</th>
             <th className="px-4 py-3 font-semibold">Jenis add-on</th>
             <th className="px-4 py-3 font-semibold">Jumlah</th>
+            <th className="px-4 py-3 font-semibold">Note</th>
             <th className="px-4 py-3 font-semibold">{periodTotalLabel}</th>
           </tr>
         </thead>
@@ -452,6 +454,9 @@ function AddonTable({
               <td className="px-4 py-3 text-muted">{formatDate(row.addonDate)}</td>
               <td className="px-4 py-3 text-muted">{row.addonTypeLabel}</td>
               <td className="px-4 py-3 font-semibold text-foreground">{row.addonQuantity}</td>
+              <td className="max-w-[260px] px-4 py-3 text-muted">
+                <span className="block whitespace-pre-wrap break-words">{row.note || "-"}</span>
+              </td>
               <td className="px-4 py-3 text-muted">{row.monthTotalQuantity}</td>
             </tr>
           ))}
@@ -1367,6 +1372,13 @@ function AdminPanel({ data }: { data: AdminDashboardData }) {
       <CardSection title="Aksi admin" description="Admin dapat menambahkan pekerjaan baru dan menjalankan ulang sinkron KPI bila ada banyak update."><div className="grid gap-4 xl:grid-cols-[0.65fr_0.35fr]"><CreateProgressForm teamUsers={data.teamUsers} /><SyncKpiCard /></div></CardSection>
       <CardSection title="Tabel daily progress" description="Admin memegang kontrol utama pada tabel progres harian, termasuk assignment, revisi, done, dan closing."><ManagerProgressList rows={serializeProgressRows(data.progressRows)} teamUsers={data.teamUsers} /></CardSection>
       <CardSection title="Completed list" description="Ringkasan pekerjaan yang sudah closing membantu admin mengecek backlog yang benar-benar selesai."><CompletedProgressRecap rows={data.completedProgressRows} emptyDescription="Belum ada pekerjaan yang dipindahkan ke completed list." /></CardSection>
+      <CardSection title={`Monitoring pekerjaan add-on ${data.addonMonthLabel}`} description="Admin dapat melihat input add-on bulan berjalan, termasuk keterangan tambahan dari karyawan.">
+        <AddonTable
+          rows={data.addonRows}
+          periodTotalLabel="Total bulan ini"
+          emptyDescription="Belum ada input pekerjaan add-on pada bulan berjalan."
+        />
+      </CardSection>
       <CardSection title="KPI bulanan terbaru" description="Admin bisa memakai tabel ini untuk melihat performa terbaru sebelum review dengan owner."><MonthlyKpiTable rows={data.monthlyKpis} emptyDescription="Belum ada perhitungan KPI yang tersimpan untuk ditinjau admin." /></CardSection>
     </div>
   );

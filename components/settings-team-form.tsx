@@ -269,7 +269,7 @@ export function SettingsTeamForm({
 
           {!isProvisioningReady ? (
             <div className="mt-5 rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">
-              Supabase admin belum terhubung, jadi pembuatan akun baru dari dashboard owner
+              Sistem akun lokal belum siap, jadi pembuatan akun baru dari dashboard owner
               belum bisa dijalankan.
             </div>
           ) : null}

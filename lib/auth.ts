@@ -1,12 +1,9 @@
 import { UserRole } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { cache } from "react";
 
-import { prisma } from "@/lib/prisma";
-import { isSupabaseConfigured } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { findUserByEmailWithArchiveState } from "@/lib/user-archiving";
+import { getLocalSessionUserId } from "@/lib/session";
+import { findUserByIdWithArchiveState } from "@/lib/user-archiving";
 
 export type AuthenticatedUser = {
   id: string;
@@ -18,71 +15,29 @@ export type AuthenticatedUser = {
 };
 
 export const getAuthState = cache(async () => {
-  if (!isSupabaseConfigured()) {
+  const userId = await getLocalSessionUserId();
+
+  if (!userId) {
     return {
       sessionUser: null,
       profile: null,
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const profile = await findUserByIdWithArchiveState(userId);
 
-  if (!supabase) {
+  if (!profile?.isActive) {
     return {
       sessionUser: null,
       profile: null,
     };
   }
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user?.email) {
-    return {
-      sessionUser: null,
-      profile: null,
-    };
-  }
-
-  const email = user.email.toLowerCase();
-  const existingProfile = await findUserByEmailWithArchiveState(email);
-
-  if (!existingProfile) {
-    return {
-      sessionUser: user,
-      profile: null,
-    };
-  }
-
-  if (!existingProfile.isActive) {
-    return {
-      sessionUser: user,
-      profile: null,
-    };
-  }
-
-  if (existingProfile.authUserId && existingProfile.authUserId !== user.id) {
-    return {
-      sessionUser: user,
-      profile: null,
-    };
-  }
-
-  const profile = existingProfile.authUserId
-    ? existingProfile
-    : await prisma.user.update({
-        where: {
-          id: existingProfile.id,
-        },
-        data: {
-          authUserId: user.id,
-        },
-      });
 
   return {
-    sessionUser: user,
+    sessionUser: {
+      id: profile.id,
+      email: profile.email,
+    },
     profile,
   };
 });
@@ -92,16 +47,8 @@ export async function getCurrentUserProfile() {
   return authState.profile as AuthenticatedUser | null;
 }
 
-export async function hasSupabaseSessionCookie() {
-  if (!isSupabaseConfigured()) {
-    return false;
-  }
-
-  const cookieStore = await cookies();
-
-  return cookieStore
-    .getAll()
-    .some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
+export async function hasLocalSessionCookie() {
+  return Boolean(await getLocalSessionUserId());
 }
 
 export async function requireAuthenticatedUser() {

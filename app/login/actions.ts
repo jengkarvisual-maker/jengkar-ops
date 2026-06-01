@@ -1,8 +1,8 @@
 "use server";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { hashPassword, getLegacySeedPassword, verifyPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { clearLocalSession, createLocalSession } from "@/lib/session";
 import { findUserByEmailWithArchiveState } from "@/lib/user-archiving";
 
 export type LoginActionState = {
@@ -19,13 +19,6 @@ export async function loginAction(
   _previousState: LoginActionState,
   formData: FormData,
 ): Promise<LoginActionState> {
-  if (!isSupabaseConfigured()) {
-    return {
-      error: "Konfigurasi Supabase belum lengkap. Isi environment terlebih dahulu.",
-      redirectTo: null,
-    };
-  }
-
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
@@ -40,7 +33,14 @@ export async function loginAction(
 
   const existingProfile = await findUserByEmailWithArchiveState(email);
 
-  if (existingProfile && !existingProfile.isActive) {
+  if (!existingProfile) {
+    return {
+      error: "Login gagal. Pastikan email dan password sudah benar.",
+      redirectTo: null,
+    };
+  }
+
+  if (!existingProfile.isActive) {
     return {
       error:
         "Akun ini sudah dinonaktifkan dari tim aktif Rumah Jengkar. Hubungi owner atau admin bila masih perlu akses.",
@@ -48,26 +48,47 @@ export async function loginAction(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-
-  if (!supabase) {
-    return {
-      error: "Klien auth belum siap. Cek kembali environment Supabase Anda.",
-      redirectTo: null,
-    };
-  }
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const userWithPassword = await prisma.user.findUnique({
+    where: {
+      id: existingProfile.id,
+    },
+    select: {
+      id: true,
+      passwordHash: true,
+    },
   });
 
-  if (error) {
+  if (!userWithPassword) {
     return {
       error: "Login gagal. Pastikan email dan password sudah benar.",
       redirectTo: null,
     };
   }
+
+  const isPasswordValid = verifyPassword(password, userWithPassword.passwordHash);
+  const legacySeedPassword = getLegacySeedPassword(email);
+  const isLegacySeedPasswordValid =
+    !userWithPassword.passwordHash && legacySeedPassword === password;
+
+  if (!isPasswordValid && !isLegacySeedPasswordValid) {
+    return {
+      error: "Login gagal. Pastikan email dan password sudah benar.",
+      redirectTo: null,
+    };
+  }
+
+  if (isLegacySeedPasswordValid) {
+    await prisma.user.update({
+      where: {
+        id: userWithPassword.id,
+      },
+      data: {
+        passwordHash: hashPassword(password),
+      },
+    });
+  }
+
+  await createLocalSession(existingProfile.id);
 
   return {
     error: null,
@@ -76,11 +97,7 @@ export async function loginAction(
 }
 
 export async function signOutAction(): Promise<SignOutActionState> {
-  const supabase = await createSupabaseServerClient();
-
-  if (supabase) {
-    await supabase.auth.signOut();
-  }
+  await clearLocalSession();
 
   return {
     error: null,

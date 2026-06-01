@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { createClient } from "@supabase/supabase-js";
 import { UserRole, WorkdayOverrideType } from "@prisma/client";
 
 import {
@@ -10,18 +9,15 @@ import {
   requireAuthenticatedUser,
 } from "@/lib/auth";
 import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
-import { env, isSupabaseConfigured } from "@/lib/env";
 import { isKpiMonthLocked, syncAllKpisForMonth, syncUserKpisForDates } from "@/lib/kpi";
+import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isValidTimeInput } from "@/lib/workday-overrides";
 import {
   buildLegacyArchivedEmail,
   findUserByEmailWithArchiveState,
   findUserByIdWithArchiveState,
   hasUserArchivingColumns,
-  isLegacyArchivedEmail,
 } from "@/lib/user-archiving";
 import {
   addDays,
@@ -154,48 +150,6 @@ function ensureOwnerSettingsAction(
   }
 
   return null;
-}
-
-async function findSupabaseAuthUserIdByEmail(email: string) {
-  const supabaseAdmin = createSupabaseAdminClient();
-
-  if (!supabaseAdmin) {
-    return {
-      authUserId: null,
-      client: null,
-    };
-  }
-
-  let page = 1;
-  let shouldContinue = true;
-
-  while (shouldContinue) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-      page,
-      perPage: 200,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    const matchedUser = data.users.find((user) => user.email?.toLowerCase() === email);
-
-    if (matchedUser) {
-      return {
-        authUserId: matchedUser.id,
-        client: supabaseAdmin,
-      };
-    }
-
-    shouldContinue = data.users.length === 200;
-    page += 1;
-  }
-
-  return {
-    authUserId: null,
-    client: supabaseAdmin,
-  };
 }
 
 function parseMonthKey(monthKey: string) {
@@ -594,71 +548,8 @@ export async function createEmployeeAction(
     };
   }
 
-  let authUserId: string | null = null;
-  let createdAuthUserId: string | null = null;
-
   try {
-    const { authUserId: existingAuthUserId, client: supabaseAdmin } =
-      await findSupabaseAuthUserIdByEmail(email);
-
-    if (!supabaseAdmin) {
-      return {
-        error:
-          "Konfigurasi Supabase admin belum lengkap, jadi akun baru belum bisa dibuat dari dashboard owner.",
-        success: null,
-      };
-    }
-
-    if (existingAuthUserId && !canReactivateArchivedProfile) {
-      return {
-        error:
-          "Email ini sudah terdaftar di sistem login. Gunakan email lain atau hubungi pengelola untuk sinkronisasi akun lama.",
-        success: null,
-      };
-    }
-
-    if (existingAuthUserId) {
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(existingAuthUserId, {
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          name,
-          role: UserRole.KARYAWAN,
-        },
-      });
-
-      if (error) {
-        return {
-          error:
-            error.message || "Akun login lama belum berhasil diaktifkan kembali. Silakan coba lagi.",
-          success: null,
-        };
-      }
-
-      authUserId = existingAuthUserId;
-    } else {
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          name,
-          role: UserRole.KARYAWAN,
-        },
-      });
-
-      if (error || !data.user?.id) {
-        return {
-          error:
-            error?.message || "Akun login belum berhasil dibuat. Silakan coba beberapa saat lagi.",
-          success: null,
-        };
-      }
-
-      authUserId = data.user.id;
-      createdAuthUserId = data.user.id;
-    }
+    const passwordHash = hashPassword(password);
 
     if (existingProfile && canReactivateArchivedProfile) {
       await prisma.user.update({
@@ -668,7 +559,8 @@ export async function createEmployeeAction(
         data: {
           name,
           role: UserRole.KARYAWAN,
-          authUserId,
+          passwordHash,
+          authUserId: null,
           ...(supportsUserArchiving
             ? {
                 isActive: true,
@@ -683,7 +575,8 @@ export async function createEmployeeAction(
           name,
           email,
           role: UserRole.KARYAWAN,
-          authUserId,
+          passwordHash,
+          authUserId: null,
           ...(supportsUserArchiving
             ? {
                 isActive: true,
@@ -693,16 +586,11 @@ export async function createEmployeeAction(
       });
     }
   } catch (error) {
-    if (createdAuthUserId) {
-      const supabaseAdmin = createSupabaseAdminClient();
-      await supabaseAdmin?.auth.admin.deleteUser(createdAuthUserId);
-    }
-
     console.error("createEmployeeAction", error);
 
     return {
       error:
-        "Akun baru belum berhasil disimpan. Jika percobaan pertama sempat membuat akun login, sistem sudah mencoba membersihkannya kembali.",
+        "Akun baru belum berhasil disimpan. Silakan cek koneksi database OPS lalu coba lagi.",
       success: null,
     };
   }
@@ -787,47 +675,18 @@ export async function archiveEmployeeAction(
     });
   }
 
-  let authCleanupMessage =
-    "Akun dinonaktifkan dan akses login baru akan ditolak oleh aplikasi OPS.";
+  await prisma.user.update({
+    where: {
+      id: targetUser.id,
+    },
+    data: {
+      authUserId: null,
+      passwordHash: null,
+    },
+  });
 
-  try {
-    const { authUserId: existingAuthUserId, client: supabaseAdmin } =
-      await findSupabaseAuthUserIdByEmail(targetUser.email);
-    const authUserId = targetUser.authUserId ?? existingAuthUserId;
-
-    if (supabaseAdmin && authUserId) {
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(authUserId);
-
-        if (error) {
-          console.error("archiveEmployeeAction.deleteSupabaseUser", error);
-          authCleanupMessage =
-            "Akun dinonaktifkan di OPS, tetapi akun login Supabase belum berhasil dibersihkan. Owner masih bisa mengulang proses ini nanti bila perlu.";
-        } else {
-          const authCleanupData = supportsUserArchiving
-            ? {
-                authUserId: null,
-              }
-            : {
-                authUserId: null,
-                email: isLegacyArchivedEmail(targetUser.email)
-                  ? targetUser.email
-                  : buildLegacyArchivedEmail(targetUser.email, targetUser.id),
-              };
-          await prisma.user.update({
-            where: {
-              id: targetUser.id,
-            },
-            data: authCleanupData,
-          });
-          authCleanupMessage =
-            "Akun dinonaktifkan dan login Supabase berhasil dibersihkan.";
-        }
-      }
-  } catch (error) {
-    console.error("archiveEmployeeAction", error);
-    authCleanupMessage =
-      "Akun dinonaktifkan di OPS, tetapi pembersihan login eksternal perlu dicek manual.";
-  }
+  const authCleanupMessage =
+    "Akun dinonaktifkan dan akses login lokal OPS sudah dicabut.";
 
   refreshDashboardAndSettings();
 
@@ -901,48 +760,15 @@ export async function resetManagedPasswordAction(
     };
   }
 
-  const { authUserId: existingAuthUserId, client: supabaseAdmin } =
-    await findSupabaseAuthUserIdByEmail(targetUser.email);
-
-  if (!supabaseAdmin) {
-    return {
-      error:
-        "Konfigurasi Supabase admin belum lengkap, jadi reset password belum bisa dijalankan.",
-      success: null,
-    };
-  }
-
-  const authUserId = targetUser.authUserId ?? existingAuthUserId;
-
-  if (!authUserId) {
-    return {
-      error:
-        "Akun login Supabase untuk user ini belum ditemukan. Silakan pastikan akun tersebut pernah dibuat atau login setidaknya sekali.",
-      success: null,
-    };
-  }
-
-  const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    password: newPassword,
+  await prisma.user.update({
+    where: {
+      id: targetUser.id,
+    },
+    data: {
+      passwordHash: hashPassword(newPassword),
+      authUserId: null,
+    },
   });
-
-  if (error) {
-    return {
-      error: error.message || "Reset password belum berhasil. Silakan coba lagi.",
-      success: null,
-    };
-  }
-
-  if (!targetUser.authUserId && existingAuthUserId) {
-    await prisma.user.update({
-      where: {
-        id: targetUser.id,
-      },
-      data: {
-        authUserId: existingAuthUserId,
-      },
-    });
-  }
 
   refreshSettings();
 
@@ -1145,13 +971,6 @@ export async function changePasswordAction(
 ): Promise<ChangePasswordState> {
   const user = await requireAuthenticatedUser();
 
-  if (!isSupabaseConfigured()) {
-    return {
-      error: "Konfigurasi Supabase belum lengkap. Password belum bisa diperbarui.",
-      success: null,
-    };
-  }
-
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
@@ -1184,44 +1003,31 @@ export async function changePasswordAction(
     };
   }
 
-  const verifier = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+  const userWithPassword = await prisma.user.findUnique({
+    where: {
+      id: user.id,
+    },
+    select: {
+      passwordHash: true,
     },
   });
 
-  const { error: verifyError } = await verifier.auth.signInWithPassword({
-    email: user.email,
-    password: currentPassword,
-  });
-
-  if (verifyError) {
+  if (!verifyPassword(currentPassword, userWithPassword?.passwordHash)) {
     return {
       error: "Password saat ini belum sesuai.",
       success: null,
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-
-  if (!supabase) {
-    return {
-      error: "Sesi auth tidak tersedia. Silakan login ulang lalu coba lagi.",
-      success: null,
-    };
-  }
-
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword,
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      passwordHash: hashPassword(newPassword),
+      authUserId: null,
+    },
   });
-
-  if (error) {
-    return {
-      error: "Password belum berhasil diperbarui. Silakan coba beberapa saat lagi.",
-      success: null,
-    };
-  }
 
   refreshSettings();
 

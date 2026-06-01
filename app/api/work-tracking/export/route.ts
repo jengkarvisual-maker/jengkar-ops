@@ -117,6 +117,7 @@ export async function GET(request: Request) {
         totalJamLemburPerBulan: row.monthTotalHours,
         jenisPekerjaanAddon: "",
         jumlahPekerjaanAddonPerHari: 0,
+        noteKeteranganTambahan: "",
         totalPekerjaanAddonPerBulan: 0,
       });
       return;
@@ -134,6 +135,7 @@ export async function GET(request: Request) {
         totalJamLemburPerBulan: row.monthTotalHours,
         jenisPekerjaanAddon: addonRow.addonTypeLabel,
         jumlahPekerjaanAddonPerHari: addonRow.addonQuantity,
+        noteKeteranganTambahan: addonRow.note ?? "",
         totalPekerjaanAddonPerBulan: addonRow.monthTotalQuantity,
       });
     });
@@ -155,6 +157,7 @@ export async function GET(request: Request) {
       totalJamLemburPerBulan: 0,
       jenisPekerjaanAddon: row.addonTypeLabel,
       jumlahPekerjaanAddonPerHari: row.addonQuantity,
+      noteKeteranganTambahan: row.note ?? "",
       totalPekerjaanAddonPerBulan: row.monthTotalQuantity,
     });
   });

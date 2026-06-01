@@ -165,6 +165,7 @@ export type EmployeeAddonItem = {
   addonType: AddonType;
   addonTypeLabel: string;
   addonQuantity: number;
+  note: string | null;
   monthTotalQuantity: number;
   createdAt: Date;
   updatedAt: Date;
@@ -237,6 +238,9 @@ export type AdminDashboardData = {
   openProgressCount: number;
   completedProgressCount: number;
   monthlyKpis: MonthlyKpiItem[];
+  addonRows: EmployeeAddonItem[];
+  addonMonthLabel: string;
+  addonMonthlyTotalQuantity: number;
 };
 
 export type EmployeeDashboardData = {

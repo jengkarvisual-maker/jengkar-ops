@@ -203,7 +203,7 @@ function ResetPasswordCard({
 
         {!isProvisioningReady ? (
           <div className="rounded-[20px] border border-warning/15 bg-warning/10 px-4 py-3 text-sm text-warning">
-            Supabase admin belum terhubung, jadi reset password belum bisa dijalankan.
+            Sistem akun lokal belum siap, jadi reset password belum bisa dijalankan.
           </div>
         ) : null}
 

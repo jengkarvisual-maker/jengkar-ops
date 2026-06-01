@@ -1016,6 +1016,7 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
     openProgressCount,
     completedProgressCount,
     monthlyRows,
+    addonSummary,
   ] =
     await Promise.all([
       getAssignableUsers(),
@@ -1071,6 +1072,10 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
         },
         select: monthlyKpiRowSelect,
       }),
+      getMonthlyAddonSummary({
+        year: currentYear,
+        month: currentMonth,
+      }),
     ]);
 
   const attendanceOverrideMap = await getWorkdayOverrideMapForDates(
@@ -1086,6 +1091,9 @@ async function buildAdminDashboardData(): Promise<AdminDashboardData> {
     openProgressCount,
     completedProgressCount,
     monthlyKpis: sortMonthlyKpisAlphabetically(mapMonthlyKpis(monthlyRows)),
+    addonRows: addonSummary.rows,
+    addonMonthLabel: formatMonthYear(currentMonth, currentYear),
+    addonMonthlyTotalQuantity: addonSummary.totalQuantity,
   };
 }
 

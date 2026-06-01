@@ -2,14 +2,13 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/login-form";
-import { getCurrentUserProfile, hasSupabaseSessionCookie } from "@/lib/auth";
-import { isSupabaseConfigured } from "@/lib/env";
+import { getCurrentUserProfile, hasLocalSessionCookie } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function LoginPage() {
-  if (await hasSupabaseSessionCookie()) {
+  if (await hasLocalSessionCookie()) {
     try {
       const profile = await getCurrentUserProfile();
 
@@ -20,8 +19,6 @@ export default async function LoginPage() {
       console.error("[ops-login] failed to resolve current user profile", error);
     }
   }
-
-  const configured = isSupabaseConfigured();
 
   return (
     <main className="ui-page-shell flex items-center justify-center">
@@ -44,7 +41,7 @@ export default async function LoginPage() {
         </div>
 
         <div className="mx-auto mt-8 max-w-3xl">
-          <LoginForm submitDisabled={!configured} />
+          <LoginForm />
         </div>
       </section>
     </main>

@@ -1,60 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 
 import { INITIAL_USERS, SEED_DEFAULT_PASSWORD } from "../lib/constants";
-import { createSupabaseAdminClient } from "../lib/supabase/admin";
+import { hashPassword } from "../lib/passwords";
 import { calculateBonusPool } from "../lib/utils";
 
 const prisma = new PrismaClient();
 
 async function seedUsers() {
-  const supabaseAdmin = createSupabaseAdminClient();
-  const authUsersByEmail = new Map<string, string>();
-
-  if (supabaseAdmin) {
-    let page = 1;
-    let shouldContinue = true;
-
-    while (shouldContinue) {
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage: 200,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      data.users.forEach((user) => {
-        if (user.email) {
-          authUsersByEmail.set(user.email.toLowerCase(), user.id);
-        }
-      });
-
-      shouldContinue = data.users.length === 200;
-      page += 1;
-    }
-  }
-
   for (const user of INITIAL_USERS) {
-    let authUserId = authUsersByEmail.get(user.email);
-
-    if (!authUserId && supabaseAdmin) {
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: user.email,
-        password: user.password ?? SEED_DEFAULT_PASSWORD,
-        email_confirm: true,
-        user_metadata: {
-          name: user.name,
-          role: user.role,
-        },
-      });
-
-      if (error && !error.message.toLowerCase().includes("already")) {
-        throw error;
-      }
-
-      authUserId = data.user?.id ?? authUsersByEmail.get(user.email) ?? undefined;
-    }
+    const password = user.password ?? SEED_DEFAULT_PASSWORD;
+    const passwordHash = hashPassword(password);
 
     await prisma.user.upsert({
       where: {
@@ -63,13 +18,15 @@ async function seedUsers() {
       update: {
         name: user.name,
         role: user.role,
-        authUserId: authUserId ?? undefined,
+        passwordHash,
+        authUserId: null,
       },
       create: {
         name: user.name,
         email: user.email,
         role: user.role,
-        authUserId: authUserId ?? undefined,
+        passwordHash,
+        authUserId: null,
       },
     });
   }

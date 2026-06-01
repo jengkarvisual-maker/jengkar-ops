@@ -112,7 +112,7 @@ export function EmployeeAddonPanelClient({
             Input add-on {monthLabel}
           </div>
           <p className="text-sm leading-6 text-muted">
-            Tanggal input memakai tanggal hari ini otomatis. Pilih jenis pekerjaan add-on dan jumlahnya, lalu simpan.
+            Tanggal input memakai tanggal hari ini otomatis. Pilih jenis pekerjaan add-on, jumlahnya, dan isi note jika perlu.
           </p>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-foreground">Jumlah pekerjaan add-on</span>
@@ -143,6 +143,16 @@ export function EmployeeAddonPanelClient({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-foreground">Keterangan tambahan</span>
+            <textarea
+              className="ui-textarea placeholder:text-muted/70"
+              maxLength={1000}
+              name="note"
+              placeholder="Opsional, contoh: nama client, lokasi, jumlah team, atau catatan khusus."
+              rows={4}
+            />
           </label>
           <div className="ui-card px-4 py-4 text-sm leading-6 text-muted">
             Total add-on bulan berjalan: <span className="font-semibold text-foreground">{monthlyTotalQuantity}</span>
@@ -191,6 +201,9 @@ export function EmployeeAddonPanelClient({
                         <p className="font-semibold text-foreground">{row.addonTypeLabel}</p>
                         <p className="mt-1 text-sm text-muted">
                           {formatDate(row.addonDate)} • dibuat {formatDateTime(row.createdAt)}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted">
+                          Note: {row.note || "-"}
                         </p>
                       </div>
                       <div className="ui-pill px-3 py-1 text-[0.68rem] tracking-[0.1em]">

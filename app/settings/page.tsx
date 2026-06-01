@@ -7,8 +7,6 @@ import { SettingsPasswordForm } from "@/components/settings-password-form";
 import { SettingsTeamForm } from "@/components/settings-team-form";
 import { SettingsWorkdayOverridesForm } from "@/components/settings-workday-overrides-form";
 import { canResetManagedPasswords, requireAuthenticatedUser } from "@/lib/auth";
-import { EXCLUDED_OPERATIONAL_EMAILS } from "@/lib/constants";
-import { isSupabaseAdminConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
   buildActiveKaryawanWhere,
@@ -75,7 +73,7 @@ export default async function SettingsPage() {
         <section className="mt-6">
           <SettingsAdminTools
             canLockKpi={user.role === UserRole.OWNER}
-            isProvisioningReady={isSupabaseAdminConfigured()}
+            isProvisioningReady
             kpiLockOptions={kpiLockData?.availableMonths ?? []}
             lockedKpiMonths={kpiLockData?.lockedMonths ?? []}
             resettableUsers={resettableUsers}
@@ -87,7 +85,7 @@ export default async function SettingsPage() {
         <section className="mt-6 space-y-6">
           <SettingsTeamForm
             archiveFeatureReady={archiveFeatureReady}
-            isProvisioningReady={isSupabaseAdminConfigured()}
+            isProvisioningReady
             teamMembers={teamMembers}
           />
 
@@ -107,7 +105,7 @@ export default async function SettingsPage() {
               <p className="font-semibold text-foreground">Prinsip aman</p>
               <p className="mt-2">
                 Hapus hanya data operasional mentah yang sudah tidak dibutuhkan. Untuk backup
-                penuh, tetap gunakan backup harian atau export manual dari Supabase sebelum
+                penuh, tetap gunakan backup harian database VPS sebelum
                 menjalankan pembersihan besar.
               </p>
             </div>
