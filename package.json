@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "account:set-password": "tsx scripts/set-local-password.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
