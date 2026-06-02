@@ -83,6 +83,7 @@ model Attendance {
 
   @@unique([userId, date])
   @@index([date])
+  @@index([date, checkOut])
 }
 
 model StopCard {
@@ -123,7 +124,15 @@ model DailyProgress {
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, closing, canceledAt, createdAt])
+  @@index([userId, targetSelesai])
+  @@index([userId, tanggalMulai])
+  @@index([userId, tanggalSelesai])
+  @@index([userId, tanggalRevisi])
+  @@index([userId, revisiDone])
   @@index([createdAt])
+  @@index([closing, canceledAt, createdAt])
+  @@index([closing, hiddenFromDashboard, canceledAt, updatedAt])
 }
 
 model KpiMonthly {
@@ -188,6 +197,7 @@ model EmployeeAddon {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([addonDate])
+  @@index([addonDate, createdAt])
   @@index([userId, addonDate])
 }
 

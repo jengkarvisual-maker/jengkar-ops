@@ -143,6 +143,7 @@ async function getOwnerKpiLockData() {
           role: UserRole.KARYAWAN,
         },
       },
+      distinct: ["year", "month"],
       select: {
         year: true,
         month: true,
@@ -275,34 +276,18 @@ async function getOwnerWorkdayOverrides() {
 
 async function getAttendanceSafeMonths() {
   const currentMonthStart = startOfMonth(new Date());
-  const attendanceRows = await prisma.attendance.findMany({
-    where: {
-      date: {
-        lt: currentMonthStart,
-      },
-    },
-    select: {
-      date: true,
-    },
-    orderBy: {
-      date: "desc",
-    },
-  });
+  const rows = await prisma.$queryRaw<Array<{ year: number; month: number }>>`
+    SELECT DISTINCT
+      EXTRACT(YEAR FROM "date")::int AS "year",
+      EXTRACT(MONTH FROM "date")::int AS "month"
+    FROM "Attendance"
+    WHERE "date" < ${currentMonthStart}
+    ORDER BY "year" DESC, "month" DESC
+    LIMIT 12
+  `;
 
-  const monthKeys = new Set<string>();
-
-  attendanceRows.forEach((row) => {
-    const { year, month } = getAppDateParts(row.date);
-    monthKeys.add(`${year}-${month}`);
-  });
-
-  return Array.from(monthKeys)
-    .map((key) => {
-      const [year, month] = key.split("-").map(Number);
-      return {
-        key,
-        label: formatMonthYear(month, year),
-      };
-    })
-    .slice(0, 12);
+  return rows.map((row) => ({
+    key: `${row.year}-${row.month}`,
+    label: formatMonthYear(row.month, row.year),
+  }));
 }

@@ -1,6 +1,7 @@
 import { AttendanceStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { buildActiveKaryawanWhere } from "@/lib/user-archiving";
 import { getJobWeight } from "@/lib/job-catalog";
 import {
   calculateMonthlyKpi,
@@ -435,7 +436,9 @@ export async function syncUserKpisForDates(userId: string, dates: Array<Date | n
 }
 
 export async function syncAllKpisForMonth(year: number, month: number) {
+  const activeKaryawanWhere = await buildActiveKaryawanWhere();
   const users = await prisma.user.findMany({
+    where: activeKaryawanWhere,
     select: {
       id: true,
     },
