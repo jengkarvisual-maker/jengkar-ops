@@ -32,73 +32,84 @@ export async function loginAction(
     };
   }
 
-  const existingProfile = await findUserByEmailWithArchiveState(email);
+  try {
+    const existingProfile = await findUserByEmailWithArchiveState(email);
 
-  if (!existingProfile) {
-    return {
-      error: "Login gagal. Pastikan email dan password sudah benar.",
-      redirectTo: null,
-    };
-  }
+    if (!existingProfile) {
+      console.warn("[ops-login] profile not found", { email });
+      return {
+        error: "Login gagal. Pastikan email dan password sudah benar.",
+        redirectTo: null,
+      };
+    }
 
-  if (!existingProfile.isActive) {
-    return {
-      error:
-        "Akun ini sudah dinonaktifkan dari tim aktif Rumah Jengkar. Hubungi owner atau admin bila masih perlu akses.",
-      redirectTo: null,
-    };
-  }
+    if (!existingProfile.isActive) {
+      return {
+        error:
+          "Akun ini sudah dinonaktifkan dari tim aktif Rumah Jengkar. Hubungi owner atau admin bila masih perlu akses.",
+        redirectTo: null,
+      };
+    }
 
-  const userWithPassword = await prisma.user.findUnique({
-    where: {
-      id: existingProfile.id,
-    },
-    select: {
-      id: true,
-      passwordHash: true,
-    },
-  });
-
-  if (!userWithPassword) {
-    return {
-      error: "Login gagal. Pastikan email dan password sudah benar.",
-      redirectTo: null,
-    };
-  }
-
-  const isPasswordValid = verifyPassword(password, userWithPassword.passwordHash);
-  const legacySeedPassword = getLegacySeedPassword(email);
-  const isLegacySeedPasswordValid =
-    !userWithPassword.passwordHash && legacySeedPassword === password;
-  const isLegacySupabasePasswordValid =
-    !isPasswordValid &&
-    !isLegacySeedPasswordValid &&
-    (await verifyLegacySupabasePassword(email, password));
-
-  if (!isPasswordValid && !isLegacySeedPasswordValid && !isLegacySupabasePasswordValid) {
-    return {
-      error: "Login gagal. Pastikan email dan password sudah benar.",
-      redirectTo: null,
-    };
-  }
-
-  if (isLegacySeedPasswordValid || isLegacySupabasePasswordValid) {
-    await prisma.user.update({
+    const userWithPassword = await prisma.user.findUnique({
       where: {
-        id: userWithPassword.id,
+        id: existingProfile.id,
       },
-      data: {
-        passwordHash: hashPassword(password),
+      select: {
+        id: true,
+        passwordHash: true,
       },
     });
+
+    if (!userWithPassword) {
+      console.warn("[ops-login] user password row not found", { email, userId: existingProfile.id });
+      return {
+        error: "Login gagal. Pastikan email dan password sudah benar.",
+        redirectTo: null,
+      };
+    }
+
+    const isPasswordValid = verifyPassword(password, userWithPassword.passwordHash);
+    const legacySeedPassword = getLegacySeedPassword(email);
+    const isLegacySeedPasswordValid =
+      !userWithPassword.passwordHash && legacySeedPassword === password;
+    const isLegacySupabasePasswordValid =
+      !isPasswordValid &&
+      !isLegacySeedPasswordValid &&
+      (await verifyLegacySupabasePassword(email, password));
+
+    if (!isPasswordValid && !isLegacySeedPasswordValid && !isLegacySupabasePasswordValid) {
+      return {
+        error: "Login gagal. Pastikan email dan password sudah benar.",
+        redirectTo: null,
+      };
+    }
+
+    if (isLegacySeedPasswordValid || isLegacySupabasePasswordValid) {
+      await prisma.user.update({
+        where: {
+          id: userWithPassword.id,
+        },
+        data: {
+          passwordHash: hashPassword(password),
+        },
+      });
+    }
+
+    await createLocalSession(existingProfile.id);
+
+    return {
+      error: null,
+      redirectTo: "/dashboard",
+    };
+  } catch (error) {
+    console.error("[ops-login] login action failed", { email, error });
+    return {
+      error:
+        "Login belum berhasil karena server sedang gagal memproses sesi. Silakan coba lagi atau hubungi admin.",
+      redirectTo: null,
+    };
   }
-
-  await createLocalSession(existingProfile.id);
-
-  return {
-    error: null,
-    redirectTo: "/dashboard",
-  };
 }
 
 export async function signOutAction(): Promise<SignOutActionState> {
