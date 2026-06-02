@@ -9,14 +9,16 @@ export const revalidate = 0;
 
 export default async function LoginPage() {
   if (await hasLocalSessionCookie()) {
-    try {
-      const profile = await getCurrentUserProfile();
+    let profile = null;
 
-      if (profile) {
-        redirect("/dashboard");
-      }
+    try {
+      profile = await getCurrentUserProfile();
     } catch (error) {
       console.error("[ops-login] failed to resolve current user profile", error);
+    }
+
+    if (profile) {
+      redirect("/dashboard");
     }
   }
 
